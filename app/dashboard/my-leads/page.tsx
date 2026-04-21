@@ -4,6 +4,7 @@ import { LeadRegistryTable } from '@/components/lead-registry-table'
 import { LeadWorkspaceDrawer } from '@/components/lead-workspace-drawer'
 import { getLeadAssignableProfiles } from '@/lib/lead-access'
 import { requireDashboardAccess } from '@/lib/auth'
+import { formatDateTime } from '@/lib/format'
 import { getActivityLog, getLeadById, getMyLeads, getSalesScriptsBySegment } from '@/lib/queries'
 
 export const dynamic = 'force-dynamic'
@@ -46,7 +47,7 @@ export default async function MyLeadsPage({
         <article className="card stack leads-registry-card">
           <div className="inline-card leads-inline-card">
             <div>
-              <h2 style={{ margin: 0 }}>Моя очередь</h2>
+              <h2 style={{ margin: 0 }}>Мои клиенты</h2>
               <div className="micro">Открывайте строку справа, меняйте статус, передавайте лида или оформляйте сделку.</div>
             </div>
             <div className="compact-badges">
@@ -61,7 +62,6 @@ export default async function MyLeadsPage({
           <LeadWorkspaceDrawer
             lead={openLead}
             scripts={scripts}
-            activities={activities}
             assignableProfiles={assignableProfiles}
             scriptsMode={scriptsMode}
             dealMode={dealMode}
@@ -69,6 +69,32 @@ export default async function MyLeadsPage({
           />
         ) : null}
       </div>
+
+      <article className="card stack">
+        <div>
+          <h2 style={{ margin: 0 }}>История действий</h2>
+          <div className="micro">{openLead ? `Лид: ${openLead.contact_name_raw || 'Без имени'}` : 'Откройте клиента из списка, чтобы увидеть историю.'}</div>
+        </div>
+        {openLead ? (
+          activities.length ? (
+            <div className="table-wrap">
+              <table className="table">
+                <thead><tr><th>Событие</th><th>Комментарий</th><th>Кто</th><th>Когда</th></tr></thead>
+                <tbody>
+                  {activities.map((activity) => (
+                    <tr key={activity.id}>
+                      <td><div>{activity.title}</div><div className="micro">{activity.event_type}</div></td>
+                      <td>{activity.body || '—'}</td>
+                      <td>{activity.actor?.full_name || activity.actor?.email || 'система'}</td>
+                      <td>{formatDateTime(activity.created_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : <div className="muted">История пока пустая.</div>
+        ) : <div className="muted">История появится здесь после выбора клиента.</div>}
+      </article>
     </div>
   )
 }

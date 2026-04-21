@@ -3,7 +3,7 @@ import { createLead, updateLeadStatus } from './actions'
 import { channelOptions, label } from '@/lib/labels'
 import { LeadRegistryTable } from '@/components/lead-registry-table'
 import { LeadWorkspaceDrawer } from '@/components/lead-workspace-drawer'
-import { getActivityLog, getLeadById, getSalesScriptsBySegment, getUnassignedLeads } from '@/lib/queries'
+import { getLeadById, getSalesScriptsBySegment, getUnassignedLeads } from '@/lib/queries'
 import { getLeadAssignableProfiles } from '@/lib/lead-access'
 
 export default async function LeadsPage({
@@ -16,11 +16,10 @@ export default async function LeadsPage({
   const scriptsMode = params.scripts === '1'
   const dealMode = params.deal === '1'
 
-  const [leads, openLead, assignableProfiles, activities] = await Promise.all([
+  const [leads, openLead, assignableProfiles] = await Promise.all([
     getUnassignedLeads(80),
     openLeadId ? getLeadById(openLeadId) : Promise.resolve(null),
     getLeadAssignableProfiles(),
-    openLeadId ? getActivityLog('lead', openLeadId, 30) : Promise.resolve([]),
   ])
   const scripts = openLead?.desired_program?.segment ? await getSalesScriptsBySegment(openLead.desired_program.segment, 6) : []
 
@@ -80,7 +79,6 @@ export default async function LeadsPage({
           <LeadWorkspaceDrawer
             lead={openLead}
             scripts={scripts}
-            activities={activities}
             assignableProfiles={assignableProfiles}
             scriptsMode={scriptsMode}
             dealMode={dealMode}

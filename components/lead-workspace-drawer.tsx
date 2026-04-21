@@ -1,14 +1,12 @@
 import Link from 'next/link'
 import { convertLeadToDeal, takeLead, transferLeadOwner, updateLeadStatus } from '@/app/dashboard/leads/actions'
-import { formatDateTime } from '@/lib/format'
 import { label } from '@/lib/labels'
 import type { LeadAssignableProfile } from '@/lib/lead-access'
-import type { ActivityRow, LeadRow, SalesScriptRow } from '@/lib/queries'
+import type { LeadRow, SalesScriptRow } from '@/lib/queries'
 
 export function LeadWorkspaceDrawer({
   lead,
   scripts,
-  activities = [],
   assignableProfiles,
   scriptsMode = false,
   dealMode = false,
@@ -16,7 +14,6 @@ export function LeadWorkspaceDrawer({
 }: {
   lead: LeadRow
   scripts: SalesScriptRow[]
-  activities?: ActivityRow[]
   assignableProfiles: LeadAssignableProfile[]
   scriptsMode?: boolean
   dealMode?: boolean
@@ -162,27 +159,6 @@ export function LeadWorkspaceDrawer({
           <div className="micro">Нажмите «Сделка», чтобы открыть форму создания и перенести информацию лида в сделку.</div>
         </div>
       ) : null}
-
-      <article className="card-subtle stack">
-        <h3 style={{ margin: 0 }}>История действий</h3>
-        {activities.length ? (
-          <div className="table-wrap">
-            <table className="table">
-              <thead><tr><th>Событие</th><th>Комментарий</th><th>Кто</th><th>Когда</th></tr></thead>
-              <tbody>
-                {activities.map((activity) => (
-                  <tr key={activity.id}>
-                    <td><div>{activity.title}</div><div className="micro">{activity.event_type}</div></td>
-                    <td>{activity.body || '—'}</td>
-                    <td>{activity.actor?.full_name || activity.actor?.email || 'система'}</td>
-                    <td>{formatDateTime(activity.created_at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : <div className="muted">История пока пустая.</div>}
-      </article>
 
       <div className="form-actions" style={{ justifyContent: 'flex-start' }}>
         <Link className="button-secondary" href={returnPath}>Закрыть панель</Link>
