@@ -264,6 +264,9 @@ async function uniqueCustomSlug(admin: ReturnType<typeof createAdminClient>, raw
 }
 
 async function seedStarter(admin: ReturnType<typeof createAdminClient>, userId: string) {
+  const { data: ownerProfile } = await admin.from('profiles').select('id, email').eq('id', userId).maybeSingle()
+  const ownerEmail = lowerEmail((ownerProfile as { email?: string | null } | null)?.email)
+
   const { data: existingSpaces } = await admin.from('workspace_spaces').select('id, slug')
   const bySlug = new Map(((existingSpaces ?? []) as { id: string; slug: string }[]).map((row) => [row.slug, row.id]))
 
@@ -287,6 +290,25 @@ async function seedStarter(admin: ReturnType<typeof createAdminClient>, userId: 
   for (const [spaceIndex, template] of STARTER_WORKSPACE_TEMPLATES.entries()) {
     const spaceId = idBySlug.get(template.slug)
     if (!spaceId) continue
+
+    if (ownerEmail) {
+      const { data: existingMember } = await admin
+        .from('workspace_space_members')
+        .select('id')
+        .eq('space_id', spaceId)
+        .eq('assigned_email', ownerEmail)
+        .maybeSingle()
+
+      if (!existingMember) {
+        await admin.from('workspace_space_members').insert({
+          space_id: spaceId,
+          assigned_email: ownerEmail,
+          profile_id: userId,
+          member_label: 'Owner',
+          sort_order: 10,
+        })
+      }
+    }
 
     const { data: existingModules } = await admin.from('workspace_space_modules').select('module_key').eq('space_id', spaceId)
     const existingKeys = new Set(((existingModules ?? []) as { module_key: string }[]).map((row) => row.module_key))
