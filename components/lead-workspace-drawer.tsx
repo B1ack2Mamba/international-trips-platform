@@ -1,25 +1,30 @@
 import Link from 'next/link'
 import { convertLeadToDeal, takeLead, transferLeadOwner, updateLeadStatus } from '@/app/dashboard/leads/actions'
+import { formatDateTime } from '@/lib/format'
 import { label } from '@/lib/labels'
 import type { LeadAssignableProfile } from '@/lib/lead-access'
-import type { LeadRow, SalesScriptRow } from '@/lib/queries'
+import type { ActivityRow, LeadRow, SalesScriptRow } from '@/lib/queries'
 
 export function LeadWorkspaceDrawer({
   lead,
   scripts,
+  activities = [],
   assignableProfiles,
   scriptsMode = false,
-  readyMode = false,
+  dealMode = false,
   returnPath = '/dashboard/leads',
 }: {
   lead: LeadRow
   scripts: SalesScriptRow[]
+  activities?: ActivityRow[]
   assignableProfiles: LeadAssignableProfile[]
   scriptsMode?: boolean
-  readyMode?: boolean
+  dealMode?: boolean
   returnPath?: string
 }) {
   const transferTargets = assignableProfiles.filter((profile) => profile.id !== lead.owner_user_id)
+  const dealFormHref = `${returnPath}?open=${encodeURIComponent(lead.id)}&deal=1#lead-deal-form`
+  const titleDefault = `${lead.desired_program?.title || lead.desired_country || 'Программа'} / ${lead.contact_name_raw || 'Контакт'}`
   const displayStatus = lead.converted_deal_id
     ? 'Сделка'
     : ['archived', 'duplicate', 'disqualified'].includes(lead.status)
@@ -68,7 +73,6 @@ export function LeadWorkspaceDrawer({
       <div className="card-subtle stack">
         <div className="micro">Действия по лиду</div>
         <div className="form-actions" style={{ justifyContent: 'flex-start', flexWrap: 'wrap' }}>
-          <Link className="button-secondary" href={`/dashboard/leads/${lead.id}`}>Полная карточка</Link>
           {!lead.converted_deal_id && !lead.owner_user_id ? (
             <form action={takeLead}>
               <input type="hidden" name="lead_id" value={lead.id} />
@@ -77,6 +81,9 @@ export function LeadWorkspaceDrawer({
           ) : null}
           {lead.converted_deal_id ? (
             <Link className="button-secondary" href={`/dashboard/deals?open=${lead.converted_deal_id}#deal-editor`}>К сделке</Link>
+          ) : null}
+          {!lead.converted_deal_id && lead.owner_user_id && lead.status !== 'archived' ? (
+            <Link className="button" href={dealFormHref}>Сделка</Link>
           ) : null}
           {!lead.converted_deal_id && lead.owner_user_id && lead.status !== 'archived' ? (
             <form action={updateLeadStatus}>
@@ -110,7 +117,7 @@ export function LeadWorkspaceDrawer({
         </div>
       ) : null}
 
-      {lead.owner_user_id && lead.status !== 'archived' || scriptsMode ? (
+      {((lead.owner_user_id && lead.status !== 'archived') || scriptsMode) ? (
         <div className="stack">
           <div className="inline-card">
             <div>
@@ -128,21 +135,54 @@ export function LeadWorkspaceDrawer({
         </div>
       ) : null}
 
-      {lead.owner_user_id && lead.status !== 'archived' && !lead.converted_deal_id ? (
-        <form action={convertLeadToDeal}>
-          <input type="hidden" name="lead_id" value={lead.id} />
-          <input type="hidden" name="title" value={`${lead.desired_program?.title || lead.desired_country || 'Программа'} / ${lead.contact_name_raw || 'Контакт'}`} />
-          <input type="hidden" name="stage" value="qualified" />
-          <input type="hidden" name="participants_count" value="1" />
-          <input type="hidden" name="currency" value="RUB" />
-          <input type="hidden" name="notes" value={lead.message || 'Сделка оформлена из лида.'} />
-          <div className="notice">
-            <div style={{ fontWeight: 800, marginBottom: 6 }}>Перевести в сделку</div>
-            <div className="micro">Когда договорились с клиентом, создайте сделку прямо из этой панели.</div>
+      {dealMode && lead.owner_user_id && lead.status !== 'archived' && !lead.converted_deal_id ? (
+        <div className="card-subtle stack" id="lead-deal-form">
+          <div>
+            <h3 style={{ margin: 0 }}>Создание сделки</h3>
+            <div className="micro">Данные лида будут перенесены в сделку, после сохранения откроется раздел сделок.</div>
           </div>
-          <div className="form-actions"><button className="button">Оформить сделку</button></div>
-        </form>
+          <form action={convertLeadToDeal}>
+            <input type="hidden" name="lead_id" value={lead.id} />
+            <input type="hidden" name="stage" value="qualified" />
+            <div className="form-grid">
+              <label>Название сделки<input name="title" defaultValue={titleDefault} required /></label>
+              <label>Оценка суммы<input name="estimated_value" type="number" min="0" step="1000" placeholder="180000" /></label>
+              <label>Валюта<select name="currency" defaultValue="RUB"><option value="RUB">RUB</option><option value="USD">USD</option><option value="EUR">EUR</option><option value="CNY">CNY</option></select></label>
+              <label>Участников<input name="participants_count" type="number" min="1" defaultValue="1" /></label>
+              <label>План закрытия<input name="close_date" type="date" /></label>
+            </div>
+            <label>Комментарий для сделки<textarea name="notes" defaultValue={lead.message || 'Сделка оформлена из лида.'} /></label>
+            <label className="inline-checkbox"><input name="create_account" type="checkbox" defaultChecked /><span>Создать или привязать аккаунт семьи автоматически</span></label>
+            <div className="form-actions"><button className="button">Создать сделку</button></div>
+          </form>
+        </div>
+      ) : !lead.converted_deal_id && lead.owner_user_id && lead.status !== 'archived' ? (
+        <div className="notice">
+          <div style={{ fontWeight: 800, marginBottom: 6 }}>Сделка</div>
+          <div className="micro">Нажмите «Сделка», чтобы открыть форму создания и перенести информацию лида в сделку.</div>
+        </div>
       ) : null}
+
+      <article className="card-subtle stack">
+        <h3 style={{ margin: 0 }}>История действий</h3>
+        {activities.length ? (
+          <div className="table-wrap">
+            <table className="table">
+              <thead><tr><th>Событие</th><th>Комментарий</th><th>Кто</th><th>Когда</th></tr></thead>
+              <tbody>
+                {activities.map((activity) => (
+                  <tr key={activity.id}>
+                    <td><div>{activity.title}</div><div className="micro">{activity.event_type}</div></td>
+                    <td>{activity.body || '—'}</td>
+                    <td>{activity.actor?.full_name || activity.actor?.email || 'система'}</td>
+                    <td>{formatDateTime(activity.created_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : <div className="muted">История пока пустая.</div>}
+      </article>
 
       <div className="form-actions" style={{ justifyContent: 'flex-start' }}>
         <Link className="button-secondary" href={returnPath}>Закрыть панель</Link>

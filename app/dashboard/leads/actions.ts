@@ -138,7 +138,7 @@ export async function convertLeadToDeal(formData: FormData) {
 
   refreshLeadPaths(leadId)
   revalidatePath('/dashboard/deals')
-  redirect(`/dashboard/deals/${data}`)
+  redirect(`/dashboard/deals?open=${encodeURIComponent(String(data))}#deal-editor`)
 }
 
 export async function transferLeadOwner(formData: FormData) {

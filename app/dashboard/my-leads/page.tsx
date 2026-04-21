@@ -4,7 +4,7 @@ import { LeadRegistryTable } from '@/components/lead-registry-table'
 import { LeadWorkspaceDrawer } from '@/components/lead-workspace-drawer'
 import { getLeadAssignableProfiles } from '@/lib/lead-access'
 import { requireDashboardAccess } from '@/lib/auth'
-import { getLeadById, getMyLeads, getSalesScriptsBySegment } from '@/lib/queries'
+import { getActivityLog, getLeadById, getMyLeads, getSalesScriptsBySegment } from '@/lib/queries'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,13 +17,14 @@ export default async function MyLeadsPage({
   const params = (await searchParams) ?? {}
   const openLeadId = typeof params.open === 'string' ? params.open : ''
   const scriptsMode = params.scripts === '1'
-  const readyMode = params.ready === '1'
+  const dealMode = params.deal === '1'
   const error = typeof params.error === 'string' ? params.error : ''
 
-  const [leads, openLead, assignableProfiles] = await Promise.all([
+  const [leads, openLead, assignableProfiles, activities] = await Promise.all([
     getMyLeads(user!.id, 120),
     openLeadId ? getLeadById(openLeadId) : Promise.resolve(null),
     getLeadAssignableProfiles(),
+    openLeadId ? getActivityLog('lead', openLeadId, 30) : Promise.resolve([]),
   ])
   const scripts = openLead?.desired_program?.segment ? await getSalesScriptsBySegment(openLead.desired_program.segment, 6) : []
 
@@ -60,9 +61,10 @@ export default async function MyLeadsPage({
           <LeadWorkspaceDrawer
             lead={openLead}
             scripts={scripts}
+            activities={activities}
             assignableProfiles={assignableProfiles}
             scriptsMode={scriptsMode}
-            readyMode={readyMode}
+            dealMode={dealMode}
             returnPath="/dashboard/my-leads"
           />
         ) : null}
