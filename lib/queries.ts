@@ -527,6 +527,7 @@ export async function getUnassignedLeads(limit = 80): Promise<LeadRow[]> {
       desired_departure:departures(id, departure_name, start_date, status)`)
     .is('owner_user_id', null)
     .is('converted_deal_id', null)
+    .eq('status', 'new')
     .order('created_at', { ascending: false })
     .limit(limit)
   return asRows<LeadRow>(data).map(normalizeLeadRow)

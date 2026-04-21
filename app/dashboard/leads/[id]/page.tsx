@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { convertLeadToDeal, takeLead, updateLeadStatus } from '../actions'
 import { formatDateTime } from '@/lib/format'
-import { dealStageOptions, label, leadStatusOptions } from '@/lib/labels'
+import { dealStageOptions, label } from '@/lib/labels'
 import { getActivityLog, getLeadById, getSalesScriptsBySegment } from '@/lib/queries'
 
 export default async function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -61,7 +61,9 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
               <label>
                 Новый статус
                 <select name="status" defaultValue={lead.status}>
-                  {leadStatusOptions.map((status) => <option key={status} value={status}>{label('leadStatus', status)}</option>)}
+                  <option value="new">Новый</option>
+                  <option value="in_progress">Взять в работу</option>
+                  <option value="archived">Архив</option>
                 </select>
               </label>
               <label>
@@ -69,7 +71,6 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                 <input name="next_action_at" type="datetime-local" />
               </label>
             </div>
-            <label>Примечание<textarea name="note" placeholder="Почему меняем статус и что делать дальше" /></label>
             <div className="form-actions"><button className="button">Сохранить статус</button></div>
           </form>
         </article>

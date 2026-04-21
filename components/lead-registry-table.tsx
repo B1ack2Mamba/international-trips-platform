@@ -34,12 +34,18 @@ function StatusForm({ leadId, currentStatus, updateAction }: { leadId: string; c
         onChange={() => ref.current?.requestSubmit()}
       >
         <option value="new">Новый</option>
-        <option value="assigned">Назначен</option>
-        <option value="in_progress">В работе</option>
-        <option value="qualified">Готово</option>
+        <option value="in_progress">Взять в работу</option>
+        <option value="archived">Архив</option>
       </select>
     </form>
   )
+}
+
+function leadDisplayStatus(lead: LeadRegistryRow) {
+  if (lead.converted_deal_id) return 'Сделка'
+  if (['archived', 'duplicate', 'disqualified'].includes(lead.status)) return 'Архив'
+  if (lead.owner?.full_name) return 'Взять в работу'
+  return 'Новый'
 }
 
 export function LeadRegistryTable({
@@ -86,7 +92,7 @@ export function LeadRegistryTable({
                 {statusEditable ? (
                   <StatusForm leadId={lead.id} currentStatus={lead.status} updateAction={updateStatusAction} />
                 ) : (
-                  <div>{label('leadStatus', lead.status)}</div>
+                  <div>{leadDisplayStatus(lead)}</div>
                 )}
                 <div className="micro" style={{ marginTop: 6 }}>{lead.owner?.full_name || 'Не назначен'}</div>
                 {lead.converted_deal_id ? <div className="micro success-text">Сделка уже создана</div> : null}

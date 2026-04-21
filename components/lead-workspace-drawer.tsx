@@ -20,6 +20,13 @@ export function LeadWorkspaceDrawer({
   returnPath?: string
 }) {
   const transferTargets = assignableProfiles.filter((profile) => profile.id !== lead.owner_user_id)
+  const displayStatus = lead.converted_deal_id
+    ? 'Сделка'
+    : ['archived', 'duplicate', 'disqualified'].includes(lead.status)
+      ? 'Архив'
+      : lead.owner_user_id
+        ? 'Взять в работу'
+        : 'Новый'
 
   return (
     <aside className="card stack deal-editor-drawer" id="lead-editor">
@@ -30,7 +37,7 @@ export function LeadWorkspaceDrawer({
           <div className="micro">Редакция идёт прямо здесь: строка открывает карточку справа, статус управляет следующим шагом.</div>
         </div>
         <div className="compact-badges">
-          <span className={`badge ${lead.converted_deal_id ? '' : 'success'}`}>{lead.converted_deal_id ? 'В архиве' : label('leadStatus', lead.status)}</span>
+          <span className={`badge ${lead.converted_deal_id ? '' : 'success'}`}>{displayStatus}</span>
           <span className="badge">{label('channel', lead.source_channel)}</span>
         </div>
       </div>
@@ -54,7 +61,7 @@ export function LeadWorkspaceDrawer({
           <div><strong>Источник:</strong> <span className="micro-inline">{label('channel', lead.source_channel)}</span></div>
           <div><strong>Менеджер:</strong> <span className="micro-inline">{lead.owner?.full_name || lead.owner?.email || 'Не назначен'}</span></div>
           <div><strong>Комментарий:</strong> <span className="micro-inline">{lead.message || 'Пусто'}</span></div>
-          {lead.converted_deal_id ? <div><strong>Статус лида:</strong> <span className="micro-inline">Архив после создания сделки</span></div> : null}
+          {lead.converted_deal_id ? <div><strong>Статус лида:</strong> <span className="micro-inline">Сделка</span></div> : null}
         </div>
       </div>
 
@@ -71,36 +78,15 @@ export function LeadWorkspaceDrawer({
           {lead.converted_deal_id ? (
             <Link className="button-secondary" href={`/dashboard/deals?open=${lead.converted_deal_id}#deal-editor`}>К сделке</Link>
           ) : null}
+          {!lead.converted_deal_id && lead.owner_user_id && lead.status !== 'archived' ? (
+            <form action={updateLeadStatus}>
+              <input type="hidden" name="lead_id" value={lead.id} />
+              <input type="hidden" name="status" value="archived" />
+              <button className="button-secondary">В архив</button>
+            </form>
+          ) : null}
         </div>
       </div>
-
-      {!lead.converted_deal_id ? (
-        <div className="card-subtle stack">
-          <h3 style={{ margin: 0 }}>Смена статуса</h3>
-          <form action={updateLeadStatus}>
-            <input type="hidden" name="lead_id" value={lead.id} />
-            <div className="form-grid">
-              <label>
-                Статус
-                <select name="status" defaultValue={lead.status}>
-                  <option value="assigned">Назначен</option>
-                  <option value="in_progress">В работе</option>
-                  <option value="qualified">Готово</option>
-                  <option value="disqualified">Не целевой</option>
-                  <option value="duplicate">Дубль</option>
-                  <option value="archived">Архив</option>
-                </select>
-              </label>
-              <label>
-                Следующее действие
-                <input name="next_action_at" type="datetime-local" />
-              </label>
-            </div>
-            <label>Комментарий<textarea name="note" placeholder="Что изменилось и что делать дальше" /></label>
-            <div className="form-actions"><button className="button-secondary">Сохранить статус</button></div>
-          </form>
-        </div>
-      ) : null}
 
       {!lead.converted_deal_id && lead.owner_user_id ? (
         <div className="card-subtle stack">
@@ -124,7 +110,7 @@ export function LeadWorkspaceDrawer({
         </div>
       ) : null}
 
-      {lead.status === 'in_progress' || scriptsMode ? (
+      {lead.owner_user_id && lead.status !== 'archived' || scriptsMode ? (
         <div className="stack">
           <div className="inline-card">
             <div>
@@ -142,17 +128,17 @@ export function LeadWorkspaceDrawer({
         </div>
       ) : null}
 
-      {(lead.status === 'qualified' || readyMode) && !lead.converted_deal_id ? (
+      {lead.owner_user_id && lead.status !== 'archived' && !lead.converted_deal_id ? (
         <form action={convertLeadToDeal}>
           <input type="hidden" name="lead_id" value={lead.id} />
           <input type="hidden" name="title" value={`${lead.desired_program?.title || lead.desired_country || 'Программа'} / ${lead.contact_name_raw || 'Контакт'}`} />
           <input type="hidden" name="stage" value="qualified" />
           <input type="hidden" name="participants_count" value="1" />
           <input type="hidden" name="currency" value="RUB" />
-          <input type="hidden" name="notes" value={lead.message || 'Сделка оформлена из статуса «Готово».'} />
+          <input type="hidden" name="notes" value={lead.message || 'Сделка оформлена из лида.'} />
           <div className="notice">
-            <div style={{ fontWeight: 800, marginBottom: 6 }}>Лид готов к сделке</div>
-            <div className="micro">Когда контакт доведён до статуса «Готово», здесь появляется прямой переход к оформлению сделки.</div>
+            <div style={{ fontWeight: 800, marginBottom: 6 }}>Перевести в сделку</div>
+            <div className="micro">Когда договорились с клиентом, создайте сделку прямо из этой панели.</div>
           </div>
           <div className="form-actions"><button className="button">Оформить сделку</button></div>
         </form>

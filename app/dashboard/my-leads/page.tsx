@@ -50,11 +50,10 @@ export default async function MyLeadsPage({
             </div>
             <div className="compact-badges">
               <span className="badge">Всего: {leads.length}</span>
-              <span className="badge">В работе: {leads.filter((lead) => lead.status === 'in_progress').length}</span>
-              <span className="badge">Готово: {leads.filter((lead) => lead.status === 'qualified').length}</span>
+              <span className="badge">Взято в работу: {leads.length}</span>
             </div>
           </div>
-          <LeadRegistryTable leads={leads} updateStatusAction={updateLeadStatus} openBasePath="/dashboard/my-leads" />
+          <LeadRegistryTable leads={leads} updateStatusAction={updateLeadStatus} openBasePath="/dashboard/my-leads" statusEditable={false} />
         </article>
 
         {openLead ? (

@@ -19,11 +19,11 @@ const maps = {
   },
   leadStatus: {
     new: 'Новый',
-    assigned: 'Назначен',
-    in_progress: 'В работе',
-    qualified: 'Готово',
-    disqualified: 'Нецелевой',
-    duplicate: 'Дубликат',
+    assigned: 'Взять в работу',
+    in_progress: 'Взять в работу',
+    qualified: 'Взять в работу',
+    disqualified: 'Архив',
+    duplicate: 'Архив',
     archived: 'Архив',
   },
   dealStage: {
