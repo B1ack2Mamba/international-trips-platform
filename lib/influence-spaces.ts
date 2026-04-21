@@ -439,10 +439,9 @@ function catalogGroups(modules: WorkspaceModuleDefinition[]) {
 }
 
 function isWorkspaceModuleAllowed(role: string | null | undefined, module: WorkspaceModuleDefinition) {
-  if (module.kind === 'builtin') {
-    return isRoleAllowedForModule(role, module.key as DashboardModuleKey)
-  }
-  return isStaffRole(role)
+  if (!isStaffRole(role)) return false
+  if (module.kind === 'custom') return true
+  return isActiveDashboardModuleKey(module.key as DashboardModuleKey)
 }
 
 function pathMatchesModule(path: string, module: WorkspaceModuleDefinition) {

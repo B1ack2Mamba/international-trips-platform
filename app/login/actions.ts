@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getSiteUrl } from '@/lib/env'
 import { isStaffRole } from '@/lib/roles'
+import { ensureWorkspaceInvitationProfile } from '@/lib/workspace-invitations'
 
 function getString(formData: FormData, key: string) {
   return String(formData.get(key) ?? '').trim()
@@ -20,6 +21,8 @@ export async function login(formData: FormData) {
   if (error) {
     redirect(`/login?error=${encodeURIComponent('Неверный email или пароль.')}`)
   }
+
+  await ensureWorkspaceInvitationProfile(data.user.id, data.user.email ?? email)
 
   const { data: profile } = await supabase
     .from('profiles')
@@ -45,7 +48,7 @@ export async function signup(formData: FormData) {
   const password = getString(formData, 'password')
 
   const supabase = await createClient()
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -54,7 +57,11 @@ export async function signup(formData: FormData) {
   })
 
   if (error) {
-    redirect(`/error?message=${encodeURIComponent(error.message)}`)
+    redirect(`/login?error=${encodeURIComponent(error.message)}`)
+  }
+
+  if (data.user) {
+    await ensureWorkspaceInvitationProfile(data.user.id, data.user.email ?? email)
   }
 
   revalidatePath('/', 'layout')

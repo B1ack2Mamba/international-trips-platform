@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { login } from './actions'
+import { login, signup } from './actions'
 
 export default async function LoginPage({
   searchParams,
@@ -20,7 +20,8 @@ export default async function LoginPage({
           </div>
           <h1 className="page-title">Вход в CRM</h1>
           <p className="muted" style={{ margin: 0 }}>
-            Используйте рабочий email администратора или сотрудника с активной ролью в CRM.
+            Используйте рабочий email. Если этот email добавлен в зону доступа, после регистрации
+            кабинет сразу откроет назначенные разделы.
           </p>
           {error ? <div className="notice notice-danger">{error}</div> : null}
           {status === 'signup' ? (
@@ -32,7 +33,7 @@ export default async function LoginPage({
             <div className="form-grid">
               <label>
                 Email
-                <input name="email" type="email" defaultValue="storyguild9@gmail.com" required />
+                <input name="email" type="email" placeholder="name@company.com" required />
               </label>
               <label>
                 Пароль
@@ -43,6 +44,9 @@ export default async function LoginPage({
               <button className="button" formAction={login}>
                 Войти
               </button>
+              <button className="button-secondary" formAction={signup}>
+                Зарегистрироваться
+              </button>
             </div>
           </form>
         </section>
@@ -50,9 +54,9 @@ export default async function LoginPage({
         <section className="card stack">
           <h2 style={{ margin: 0 }}>Проверка доступа</h2>
           <ol className="list">
-            <li>Пользователь должен существовать в Supabase Auth.</li>
-            <li>В <code>public.profiles</code> должна быть активная роль <code>owner</code>, <code>admin</code> или staff.</li>
-            <li>После входа система ведёт сразу в рабочий обзор CRM.</li>
+            <li>Добавьте email в поле участников нужной зоны доступа.</li>
+            <li>Пользователь регистрируется этим же email на сайте.</li>
+            <li>При первом входе профиль активируется и получает разделы из назначенной зоны.</li>
           </ol>
           <div className="form-actions">
             <Link className="button-secondary" href="/programs">
