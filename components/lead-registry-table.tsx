@@ -34,6 +34,7 @@ function StatusForm({ leadId, currentStatus, updateAction }: { leadId: string; c
         onChange={() => ref.current?.requestSubmit()}
       >
         <option value="new">Новый</option>
+        <option value="assigned">Назначен</option>
         <option value="in_progress">В работе</option>
         <option value="qualified">Готово</option>
       </select>
@@ -44,9 +45,13 @@ function StatusForm({ leadId, currentStatus, updateAction }: { leadId: string; c
 export function LeadRegistryTable({
   leads,
   updateStatusAction,
+  openBasePath = '/dashboard/leads',
+  statusEditable = true,
 }: {
   leads: LeadRegistryRow[]
   updateStatusAction: (formData: FormData) => void
+  openBasePath?: string
+  statusEditable?: boolean
 }) {
   return (
     <div className="table-wrap table-wrap--compact-view leads-table-wrap">
@@ -62,7 +67,7 @@ export function LeadRegistryTable({
         </thead>
         <tbody>
           {leads.map((lead) => (
-            <tr key={lead.id} className="interactive-row" onClick={() => { window.location.href = `/dashboard/leads?open=${lead.id}` }}>
+            <tr key={lead.id} className="interactive-row" onClick={() => { window.location.href = `${openBasePath}?open=${lead.id}` }}>
               <td>
                 <div><strong>{lead.contact_name_raw || 'Без имени'}</strong></div>
                 <div className="micro">{lead.phone_raw || 'Телефон не указан'}</div>
@@ -78,7 +83,11 @@ export function LeadRegistryTable({
                 <div className="micro">{lead.source_detail || '—'}</div>
               </td>
               <td>
-                <StatusForm leadId={lead.id} currentStatus={lead.status} updateAction={updateStatusAction} />
+                {statusEditable ? (
+                  <StatusForm leadId={lead.id} currentStatus={lead.status} updateAction={updateStatusAction} />
+                ) : (
+                  <div>{label('leadStatus', lead.status)}</div>
+                )}
                 <div className="micro" style={{ marginTop: 6 }}>{lead.owner?.full_name || 'Не назначен'}</div>
                 {lead.converted_deal_id ? <div className="micro success-text">Сделка уже создана</div> : null}
               </td>

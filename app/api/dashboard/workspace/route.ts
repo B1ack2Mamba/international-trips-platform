@@ -377,6 +377,7 @@ async function seedGraph(admin: ReturnType<typeof createAdminClient>) {
         'finance',
         'communications',
         'settings',
+        'my_leads',
       ]),
     ),
   ) as WorkspaceModuleKey[]
@@ -398,7 +399,8 @@ async function seedGraph(admin: ReturnType<typeof createAdminClient>) {
 
   const starterLinks: Array<[WorkspaceModuleKey, WorkspaceModuleKey]> = [
     ['dashboard', 'leads'],
-    ['leads', 'deals'],
+    ['leads', 'my_leads'],
+    ['my_leads', 'deals'],
     ['deals', 'applications'],
     ['applications', 'contracts'],
     ['applications', 'create_payment'],

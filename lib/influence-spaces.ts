@@ -249,7 +249,7 @@ export const STARTER_WORKSPACE_TEMPLATES: readonly {
     color: '#10b981',
     sort_order: 20,
     description: 'Входящий поток, сделки, аккаунты, скрипты и продукт для продажи.',
-    modules: ['dashboard', 'leads', 'deals', 'accounts', 'scripts', 'programs', 'departures'],
+    modules: ['dashboard', 'leads', 'my_leads', 'deals', 'accounts', 'scripts', 'programs', 'departures'],
   },
   {
     name: 'Оформление',

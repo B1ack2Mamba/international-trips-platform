@@ -514,6 +514,43 @@ export async function getRecentLeads(limit = 10): Promise<LeadRow[]> {
   return asRows<LeadRow>(data).map(normalizeLeadRow)
 }
 
+export async function getUnassignedLeads(limit = 80): Promise<LeadRow[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('leads')
+    .select(`id, owner_user_id, desired_program_id, desired_departure_id, converted_deal_id, partner_account_id, ownership_lock_status, ownership_locked_until, ownership_note, source_channel, source_detail,
+      contact_name_raw, phone_raw, email_raw, desired_country, status, score, message, metadata,
+      assigned_at, qualified_at, next_action_at, disqualified_reason, created_at,
+      owner:profiles(id, full_name, email),
+      partner:accounts(id, display_name, account_type),
+      desired_program:programs(id, title, public_slug, segment),
+      desired_departure:departures(id, departure_name, start_date, status)`)
+    .is('owner_user_id', null)
+    .is('converted_deal_id', null)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  return asRows<LeadRow>(data).map(normalizeLeadRow)
+}
+
+export async function getMyLeads(ownerUserId: string, limit = 80): Promise<LeadRow[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('leads')
+    .select(`id, owner_user_id, desired_program_id, desired_departure_id, converted_deal_id, partner_account_id, ownership_lock_status, ownership_locked_until, ownership_note, source_channel, source_detail,
+      contact_name_raw, phone_raw, email_raw, desired_country, status, score, message, metadata,
+      assigned_at, qualified_at, next_action_at, disqualified_reason, created_at,
+      owner:profiles(id, full_name, email),
+      partner:accounts(id, display_name, account_type),
+      desired_program:programs(id, title, public_slug, segment),
+      desired_departure:departures(id, departure_name, start_date, status)`)
+    .eq('owner_user_id', ownerUserId)
+    .is('converted_deal_id', null)
+    .order('assigned_at', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  return asRows<LeadRow>(data).map(normalizeLeadRow)
+}
+
 export async function getLeadById(id: string): Promise<LeadRow | null> {
   const supabase = await createClient()
   const { data } = await supabase
