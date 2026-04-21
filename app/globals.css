@@ -2834,6 +2834,15 @@ body.builder-mode .constructor-board-stage {
   align-items: end;
 }
 
+.compact-form-grid--leads-filters {
+  grid-template-columns: minmax(260px, 1.4fr) minmax(180px, 0.7fr) minmax(180px, 0.7fr) auto;
+  align-items: end;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
 .leads-message-field textarea {
   min-height: 44px;
   max-height: 44px;
@@ -2972,6 +2981,10 @@ body.builder-mode .constructor-board-stage {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .compact-form-grid--leads-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .lead-inline-form--deal .form-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2984,6 +2997,10 @@ body.builder-mode .constructor-board-stage {
 @media (max-width: 980px) {
   .compact-form-grid--leads-top {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .compact-form-grid--leads-filters {
+    grid-template-columns: 1fr;
   }
 }
 

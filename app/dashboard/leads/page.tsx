@@ -14,6 +14,10 @@ export default async function LeadsPage({
   const params = (await searchParams) ?? {}
   const openLeadId = typeof params.open === 'string' ? params.open : ''
   const scriptsMode = params.scripts === '1'
+  const error = typeof params.error === 'string' ? params.error : ''
+  const query = typeof params.q === 'string' ? params.q.trim().toLowerCase() : ''
+  const channelFilter = typeof params.channel === 'string' ? params.channel : ''
+  const statusFilter = typeof params.status === 'string' ? params.status : ''
 
   const [leads, openLead, assignableProfiles] = await Promise.all([
     getUnassignedLeads(80),
@@ -21,6 +25,20 @@ export default async function LeadsPage({
     getLeadAssignableProfiles(),
   ])
   const scripts = openLead?.desired_program?.segment ? await getSalesScriptsBySegment(openLead.desired_program.segment, 6) : []
+  const filteredLeads = leads.filter((lead) => {
+    const haystack = [
+      lead.contact_name_raw,
+      lead.phone_raw,
+      lead.email_raw,
+      lead.desired_country,
+      lead.desired_program?.title,
+      lead.desired_departure?.departure_name,
+      lead.message,
+    ].filter(Boolean).join(' ').toLowerCase()
+    return (!query || haystack.includes(query))
+      && (!channelFilter || lead.source_channel === channelFilter)
+      && (!statusFilter || lead.status === statusFilter)
+  })
 
   return (
     <div className="content-stack compact-page fullscreen-stretch leads-fullscreen-page">
@@ -30,6 +48,8 @@ export default async function LeadsPage({
           <p className="muted">Здесь только свободные лиды. Как только менеджер берёт лида в работу, он пропадает из общей ленты и переезжает в раздел «Мои лиды».</p>
         </div>
       </section>
+
+      {error ? <div className="notice notice-danger">{error}</div> : null}
 
       <article className="card stack leads-create-card">
         <div className="compact-toolbar leads-create-toolbar">
@@ -71,7 +91,31 @@ export default async function LeadsPage({
               <Link className="button-secondary" href="/dashboard/my-leads">Мои лиды</Link>
             </div>
           </div>
-          <LeadRegistryTable leads={leads} updateStatusAction={updateLeadStatus} statusEditable={false} />
+          <form className="compact-form-grid compact-form-grid--leads-filters" action="/dashboard/leads">
+            <label>Поиск<input name="q" defaultValue={typeof params.q === 'string' ? params.q : ''} placeholder="Имя, телефон, email, программа" /></label>
+            <label>
+              Канал
+              <select name="channel" defaultValue={channelFilter}>
+                <option value="">Все каналы</option>
+                {channelOptions.map((channel) => <option key={channel} value={channel}>{label('channel', channel)}</option>)}
+              </select>
+            </label>
+            <label>
+              Статус
+              <select name="status" defaultValue={statusFilter}>
+                <option value="">Все статусы</option>
+                <option value="new">Новый</option>
+                <option value="in_progress">Взять в работу</option>
+                <option value="archived">Архив</option>
+              </select>
+            </label>
+            <div className="form-actions leads-form-actions">
+              <button className="button-secondary">Фильтровать</button>
+              <Link className="button-secondary" href="/dashboard/leads">Сбросить</Link>
+            </div>
+          </form>
+          <div className="micro">Показано: {filteredLeads.length} из {leads.length}</div>
+          <LeadRegistryTable leads={filteredLeads} updateStatusAction={updateLeadStatus} statusEditable />
         </article>
 
         {openLead && scriptsMode ? (

@@ -88,9 +88,14 @@ export async function updateLeadStatus(formData: FormData) {
     redirect(`/dashboard/my-leads?error=${encodeURIComponent('Этот лид закреплён за другим менеджером')}`)
   }
 
+  const nextOwnerUserId = status === 'in_progress'
+    ? (current?.owner_user_id ?? user!.id)
+    : (current?.owner_user_id ?? null)
+
   await supabase.from('leads').update({
     status,
-    owner_user_id: current?.owner_user_id ?? user!.id,
+    owner_user_id: nextOwnerUserId,
+    assigned_at: status === 'in_progress' && !current?.owner_user_id ? new Date().toISOString() : undefined,
     qualified_at: status === 'qualified' ? new Date().toISOString() : undefined,
     disqualified_reason: status === 'disqualified' ? note : undefined,
     next_action_at: nextActionAt,
@@ -106,7 +111,7 @@ export async function updateLeadStatus(formData: FormData) {
     metadata: { status, next_action_at: nextActionAt },
   })
   refreshLeadPaths(leadId)
-  const basePath = current?.owner_user_id ? '/dashboard/my-leads' : '/dashboard/leads'
+  const basePath = nextOwnerUserId ? '/dashboard/my-leads' : '/dashboard/leads'
 
   if (status === 'in_progress') {
     redirect(`${basePath}?open=${encodeURIComponent(leadId)}&scripts=1`)
