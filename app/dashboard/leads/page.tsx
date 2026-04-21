@@ -14,7 +14,6 @@ export default async function LeadsPage({
   const params = (await searchParams) ?? {}
   const openLeadId = typeof params.open === 'string' ? params.open : ''
   const scriptsMode = params.scripts === '1'
-  const dealMode = params.deal === '1'
 
   const [leads, openLead, assignableProfiles] = await Promise.all([
     getUnassignedLeads(80),
@@ -59,7 +58,7 @@ export default async function LeadsPage({
         </form>
       </article>
 
-      <div className={`deal-workspace ${openLead ? 'is-open' : ''}`}>
+      <div className={`deal-workspace ${openLead && scriptsMode ? 'is-open' : ''}`}>
         <article className="card stack leads-registry-card">
           <div className="inline-card leads-inline-card">
             <div>
@@ -75,13 +74,12 @@ export default async function LeadsPage({
           <LeadRegistryTable leads={leads} updateStatusAction={updateLeadStatus} statusEditable={false} />
         </article>
 
-        {openLead ? (
+        {openLead && scriptsMode ? (
           <LeadWorkspaceDrawer
             lead={openLead}
             scripts={scripts}
             assignableProfiles={assignableProfiles}
             scriptsMode={scriptsMode}
-            dealMode={dealMode}
             returnPath="/dashboard/leads"
           />
         ) : null}
