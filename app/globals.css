@@ -2843,6 +2843,11 @@ body.builder-mode .constructor-board-stage {
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.compact-form-grid--lead-task {
+  grid-template-columns: minmax(220px, 1.5fr) minmax(180px, 0.8fr) minmax(150px, 0.6fr) auto;
+  align-items: end;
+}
+
 .leads-message-field textarea {
   min-height: 44px;
   max-height: 44px;
@@ -2951,6 +2956,22 @@ body.builder-mode .constructor-board-stage {
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+.lead-task-list {
+  display: grid;
+  gap: 8px;
+}
+
+.lead-task-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
 .lead-inline-form--deal .form-grid {
   grid-template-columns: 1.6fr 0.8fr 0.65fr 0.65fr 0.8fr;
 }
@@ -2985,6 +3006,10 @@ body.builder-mode .constructor-board-stage {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .compact-form-grid--lead-task {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .lead-inline-form--deal .form-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3001,6 +3026,16 @@ body.builder-mode .constructor-board-stage {
 
   .compact-form-grid--leads-filters {
     grid-template-columns: 1fr;
+  }
+
+  .compact-form-grid--lead-task,
+  .lead-task-item {
+    grid-template-columns: 1fr;
+  }
+
+  .lead-task-item {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 

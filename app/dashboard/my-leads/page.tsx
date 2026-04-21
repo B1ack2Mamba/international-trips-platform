@@ -1,11 +1,12 @@
 import Link from 'next/link'
-import { convertLeadToDeal, generateLeadScriptAction, transferLeadOwner, updateLeadStatus } from '@/app/dashboard/leads/actions'
+import { completeLeadTaskAction, convertLeadToDeal, createLeadTaskAction, generateLeadScriptAction, transferLeadOwner, updateLeadStatus } from '@/app/dashboard/leads/actions'
 import { LeadRegistryTable } from '@/components/lead-registry-table'
 import { LeadWorkspaceDrawer } from '@/components/lead-workspace-drawer'
 import { getLeadAssignableProfiles, type LeadAssignableProfile } from '@/lib/lead-access'
 import { requireDashboardAccess } from '@/lib/auth'
 import { formatDateTime } from '@/lib/format'
-import { getActivityLog, getLeadById, getMyLeads, getSalesScriptsBySegment, type LeadRow } from '@/lib/queries'
+import { label } from '@/lib/labels'
+import { getActivityLog, getLeadById, getMyLeads, getSalesScriptsBySegment, getTasksByLead, type LeadRow, type TaskRow } from '@/lib/queries'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,12 +16,14 @@ function MyLeadActionPanel({
   mode,
   historyOpen,
   activities,
+  tasks,
 }: {
   lead: LeadRow
   assignableProfiles: LeadAssignableProfile[]
   mode: 'default' | 'deal' | 'transfer'
   historyOpen: boolean
   activities: Awaited<ReturnType<typeof getActivityLog>>
+  tasks: TaskRow[]
 }) {
   const baseHref = `/dashboard/my-leads?open=${encodeURIComponent(lead.id)}`
   const transferTargets = assignableProfiles.filter((profile) => profile.id !== lead.owner_user_id)
@@ -59,6 +62,46 @@ function MyLeadActionPanel({
           <button className="button-secondary">ИИ-скрипт</button>
         </form>
         <Link className="button-secondary" href={historyOpen ? `${baseHref}#lead-action-panel` : `${baseHref}&history=1#lead-history`}>История действий</Link>
+      </div>
+
+      <div className="lead-inline-form">
+        <div className="lead-action-popover__head">
+          <div>
+            <h3>Следующее касание</h3>
+            <div className="micro">Задача закрепится за этим клиентом и будет видна в CRM.</div>
+          </div>
+        </div>
+        <form action={createLeadTaskAction} className="compact-form-grid compact-form-grid--lead-task">
+          <input type="hidden" name="lead_id" value={lead.id} />
+          <label>Что сделать<input name="title" placeholder="Позвонить и согласовать договор" required /></label>
+          <label>Когда<input name="due_date" type="datetime-local" /></label>
+          <label>
+            Приоритет
+            <select name="priority" defaultValue="medium">
+              <option value="low">Низкий</option>
+              <option value="medium">Средний</option>
+              <option value="high">Высокий</option>
+              <option value="critical">Критический</option>
+            </select>
+          </label>
+          <div className="form-actions"><button className="button-secondary">Поставить задачу</button></div>
+        </form>
+        {tasks.length ? (
+          <div className="lead-task-list">
+            {tasks.map((task) => (
+              <form key={task.id} action={completeLeadTaskAction} className="lead-task-item">
+                <input type="hidden" name="lead_id" value={lead.id} />
+                <input type="hidden" name="task_id" value={task.id} />
+                <input type="hidden" name="title" value={task.title} />
+                <div>
+                  <strong>{task.title}</strong>
+                  <div className="micro">{task.due_date ? formatDateTime(task.due_date) : 'Без срока'} · {label('priority', task.priority)}</div>
+                </div>
+                <button className="button-secondary">Готово</button>
+              </form>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       {mode === 'transfer' && canAct ? (
@@ -137,11 +180,12 @@ export default async function MyLeadsPage({
   const historyOpen = params.history === '1'
   const error = typeof params.error === 'string' ? params.error : ''
 
-  const [leads, openLead, assignableProfiles, activities] = await Promise.all([
+  const [leads, openLead, assignableProfiles, activities, tasks] = await Promise.all([
     getMyLeads(user!.id, 120),
     openLeadId ? getLeadById(openLeadId) : Promise.resolve(null),
     getLeadAssignableProfiles(),
     openLeadId ? getActivityLog('lead', openLeadId, 30) : Promise.resolve([]),
+    openLeadId ? getTasksByLead(openLeadId, 10) : Promise.resolve([]),
   ])
   const scripts = openLead?.desired_program?.segment ? await getSalesScriptsBySegment(openLead.desired_program.segment, 6) : []
 
@@ -184,6 +228,7 @@ export default async function MyLeadsPage({
                 mode={dealMode ? 'deal' : transferMode ? 'transfer' : 'default'}
                 historyOpen={historyOpen}
                 activities={activities}
+                tasks={tasks}
               />
             ) : null}
           />

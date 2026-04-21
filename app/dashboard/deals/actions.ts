@@ -566,3 +566,62 @@ export async function transferDealOwnerAction(formData: FormData) {
   refreshDealPaths(dealId)
   redirect(`/dashboard/deals?open=${encodeURIComponent(dealId)}`)
 }
+
+export async function createDealTaskAction(formData: FormData) {
+  const { supabase, user } = await requireAbility('/dashboard/deals', 'deal.update')
+  const dealId = value(formData, 'deal_id')
+  const title = value(formData, 'title')
+  if (!dealId || !title) return
+
+  const { data: deal } = await supabase
+    .from('deals')
+    .select('owner_user_id, lead_id')
+    .eq('id', dealId)
+    .maybeSingle<{ owner_user_id: string | null; lead_id: string | null }>()
+
+  await supabase.from('tasks').insert({
+    owner_user_id: deal?.owner_user_id || user!.id,
+    lead_id: deal?.lead_id || null,
+    deal_id: dealId,
+    title,
+    description: value(formData, 'description') || null,
+    status: 'todo',
+    priority: value(formData, 'priority') || 'medium',
+    due_date: value(formData, 'due_date') ? new Date(value(formData, 'due_date')).toISOString() : null,
+    metadata: { created_from: 'deal_panel' },
+  })
+
+  await supabase.from('activity_log').insert({
+    actor_user_id: user!.id,
+    entity_type: 'deal',
+    entity_id: dealId,
+    event_type: 'deal_task_created',
+    title: 'Создана задача по сделке',
+    body: title,
+    metadata: { due_date: value(formData, 'due_date') || null },
+  })
+
+  refreshDealPaths(dealId)
+  redirect(`/dashboard/deals?open=${encodeURIComponent(dealId)}#deal-editor`)
+}
+
+export async function completeDealTaskAction(formData: FormData) {
+  const { supabase, user } = await requireAbility('/dashboard/deals', 'deal.update')
+  const dealId = value(formData, 'deal_id')
+  const taskId = value(formData, 'task_id')
+  if (!taskId) return
+
+  await supabase.from('tasks').update({ status: 'done' }).eq('id', taskId)
+  await supabase.from('activity_log').insert({
+    actor_user_id: user!.id,
+    entity_type: 'deal',
+    entity_id: dealId,
+    event_type: 'deal_task_done',
+    title: 'Задача по сделке закрыта',
+    body: value(formData, 'title') || 'Следующее действие выполнено.',
+    metadata: { task_id: taskId },
+  })
+
+  refreshDealPaths(dealId)
+  redirect(`/dashboard/deals?open=${encodeURIComponent(dealId)}#deal-editor`)
+}

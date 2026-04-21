@@ -359,7 +359,12 @@ export type SalesScriptRow = {
 
 export type TaskRow = {
   id: string
+  owner_user_id?: string | null
+  lead_id?: string | null
+  deal_id?: string | null
+  application_id?: string | null
   title: string
+  description?: string | null
   status: string
   due_date: string | null
   priority: string
@@ -917,7 +922,33 @@ export async function getSalesScriptsBySegment(segment: string, limit = 20): Pro
 
 export async function getTasks(limit = 20): Promise<TaskRow[]> {
   const supabase = await createClient()
-  const { data } = await supabase.from('tasks').select('id, title, status, due_date, priority, created_at').order('created_at', { ascending: false }).limit(limit)
+  const { data } = await supabase.from('tasks').select('id, owner_user_id, lead_id, deal_id, application_id, title, description, status, due_date, priority, created_at').order('created_at', { ascending: false }).limit(limit)
+  return asRows<TaskRow>(data)
+}
+
+export async function getTasksByLead(leadId: string, limit = 20): Promise<TaskRow[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('tasks')
+    .select('id, owner_user_id, lead_id, deal_id, application_id, title, description, status, due_date, priority, created_at')
+    .eq('lead_id', leadId)
+    .in('status', ['todo', 'doing'])
+    .order('due_date', { ascending: true, nullsFirst: false })
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  return asRows<TaskRow>(data)
+}
+
+export async function getTasksByDeal(dealId: string, limit = 20): Promise<TaskRow[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('tasks')
+    .select('id, owner_user_id, lead_id, deal_id, application_id, title, description, status, due_date, priority, created_at')
+    .eq('deal_id', dealId)
+    .in('status', ['todo', 'doing'])
+    .order('due_date', { ascending: true, nullsFirst: false })
+    .order('created_at', { ascending: false })
+    .limit(limit)
   return asRows<TaskRow>(data)
 }
 

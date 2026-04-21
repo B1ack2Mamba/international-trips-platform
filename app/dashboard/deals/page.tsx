@@ -1,10 +1,10 @@
 import Link from 'next/link'
-import { completeDealPaymentAndMoveAction, createDeal, transferDealOwnerAction, updateDealContextAction, updateDealPaymentProgressAction } from './actions'
+import { completeDealPaymentAndMoveAction, completeDealTaskAction, createDeal, createDealTaskAction, transferDealOwnerAction, updateDealContextAction, updateDealPaymentProgressAction } from './actions'
 import { ProcessTrail } from '@/components/process-trail'
 import { formatCurrency, formatDate } from '@/lib/format'
 import { label } from '@/lib/labels'
 import { DealRegistryTable } from '@/components/deal-registry-table'
-import { getAssignableManagers, getDealById, getDealFlowSummaries, getDeals, getDepartures, getPartnerAccounts, getPaymentsByDeal, getPrograms, getRecentLeads } from '@/lib/queries'
+import { getAssignableManagers, getDealById, getDealFlowSummaries, getDeals, getDepartures, getPartnerAccounts, getPaymentsByDeal, getPrograms, getRecentLeads, getTasksByDeal } from '@/lib/queries'
 
 function leadInterestLine(deal: Awaited<ReturnType<typeof getDealById>>) {
   if (!deal) return 'Интерес не указан'
@@ -22,7 +22,7 @@ export default async function DealsPage({
   const openDealId = typeof params.open === 'string' ? params.open : created
   const payMode = params.pay === '1'
 
-  const [deals, leads, createdDeal, openDeal, programs, departures, partnerAccounts, managers, openPayments] = await Promise.all([
+  const [deals, leads, createdDeal, openDeal, programs, departures, partnerAccounts, managers, openPayments, openTasks] = await Promise.all([
     getDeals(40),
     getRecentLeads(50),
     created ? getDealById(created) : Promise.resolve(null),
@@ -32,6 +32,7 @@ export default async function DealsPage({
     openDealId ? getPartnerAccounts(100) : Promise.resolve([]),
     openDealId ? getAssignableManagers(100) : Promise.resolve([]),
     openDealId ? getPaymentsByDeal(openDealId, 20) : Promise.resolve([]),
+    openDealId ? getTasksByDeal(openDealId, 10) : Promise.resolve([]),
   ])
 
   const visibleDeals = createdDeal && !deals.some((deal) => deal.id === createdDeal.id) ? [createdDeal, ...deals] : deals
@@ -166,6 +167,41 @@ export default async function DealsPage({
                 <div><strong>Страна / интерес:</strong> <span className="micro-inline">{openDeal.lead?.desired_country || openDeal.lead?.desired_program?.title || 'Не указан'}</span></div>
                 <div><strong>Комментарий лида:</strong> <span className="micro-inline">{openDeal.lead?.message || 'Пусто'}</span></div>
               </div>
+            </div>
+
+            <div className="card-subtle stack">
+              <h3 style={{ margin: 0 }}>Следующее действие</h3>
+              <form action={createDealTaskAction} className="compact-form-grid compact-form-grid--lead-task">
+                <input type="hidden" name="deal_id" value={openDeal.id} />
+                <label>Что сделать<input name="title" placeholder="Отправить договор / проверить оплату" required /></label>
+                <label>Когда<input name="due_date" type="datetime-local" /></label>
+                <label>
+                  Приоритет
+                  <select name="priority" defaultValue="medium">
+                    <option value="low">Низкий</option>
+                    <option value="medium">Средний</option>
+                    <option value="high">Высокий</option>
+                    <option value="critical">Критический</option>
+                  </select>
+                </label>
+                <div className="form-actions"><button className="button-secondary">Поставить задачу</button></div>
+              </form>
+              {openTasks.length ? (
+                <div className="lead-task-list">
+                  {openTasks.map((task) => (
+                    <form key={task.id} action={completeDealTaskAction} className="lead-task-item">
+                      <input type="hidden" name="deal_id" value={openDeal.id} />
+                      <input type="hidden" name="task_id" value={task.id} />
+                      <input type="hidden" name="title" value={task.title} />
+                      <div>
+                        <strong>{task.title}</strong>
+                        <div className="micro">{task.due_date ? formatDate(task.due_date) : 'Без срока'} · {label('priority', task.priority)}</div>
+                      </div>
+                      <button className="button-secondary">Готово</button>
+                    </form>
+                  ))}
+                </div>
+              ) : <div className="micro">Открытых задач по сделке пока нет.</div>}
             </div>
 
             <form action={transferDealOwnerAction}>

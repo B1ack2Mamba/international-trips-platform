@@ -289,3 +289,62 @@ export async function generateLeadScriptAction(formData: FormData) {
   refreshLeadPaths(leadId)
   redirect(`/dashboard/my-leads?open=${encodeURIComponent(leadId)}&history=1`)
 }
+
+export async function createLeadTaskAction(formData: FormData) {
+  const { supabase, user } = await requireAbility('/dashboard/leads', 'lead.update')
+  const leadId = value(formData, 'lead_id')
+  const title = value(formData, 'title')
+  if (!leadId || !title) return
+
+  const { data: lead } = await supabase
+    .from('leads')
+    .select('owner_user_id')
+    .eq('id', leadId)
+    .maybeSingle<{ owner_user_id: string | null }>()
+
+  await supabase.from('tasks').insert({
+    owner_user_id: lead?.owner_user_id || user!.id,
+    lead_id: leadId,
+    title,
+    description: value(formData, 'description') || null,
+    status: 'todo',
+    priority: value(formData, 'priority') || 'medium',
+    due_date: value(formData, 'due_date') ? new Date(value(formData, 'due_date')).toISOString() : null,
+    metadata: { created_from: 'lead_panel' },
+  })
+
+  await supabase.from('activity_log').insert({
+    actor_user_id: user!.id,
+    entity_type: 'lead',
+    entity_id: leadId,
+    event_type: 'lead_task_created',
+    title: 'Создано следующее действие',
+    body: title,
+    metadata: { due_date: value(formData, 'due_date') || null },
+  })
+
+  refreshLeadPaths(leadId)
+  redirect(`/dashboard/my-leads?open=${encodeURIComponent(leadId)}`)
+}
+
+export async function completeLeadTaskAction(formData: FormData) {
+  const { supabase, user } = await requireAbility('/dashboard/leads', 'lead.update')
+  const leadId = value(formData, 'lead_id')
+  const taskId = value(formData, 'task_id')
+  if (!taskId) return
+
+  await supabase.from('tasks').update({ status: 'done' }).eq('id', taskId)
+  if (leadId) {
+    await supabase.from('activity_log').insert({
+      actor_user_id: user!.id,
+      entity_type: 'lead',
+      entity_id: leadId,
+      event_type: 'lead_task_done',
+      title: 'Задача закрыта',
+      body: value(formData, 'title') || 'Следующее действие выполнено.',
+      metadata: { task_id: taskId },
+    })
+    refreshLeadPaths(leadId)
+    redirect(`/dashboard/my-leads?open=${encodeURIComponent(leadId)}`)
+  }
+}
