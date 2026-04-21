@@ -55,7 +55,8 @@ export function DealRegistryTable({
         <tbody>
           {deals.map((deal) => {
             const flow = flowByDealId[deal.id]
-            const contractSigned = flow?.contract_status === 'signed'
+            const paid = Boolean(flow?.payment_amount && flow.payment_paid_amount >= flow.payment_amount)
+            const partiallyPaid = Boolean(!paid && flow?.payment_paid_amount)
             return (
               <tr
                 key={deal.id}
@@ -78,13 +79,13 @@ export function DealRegistryTable({
               <td>
                 <div>{formatCurrency(deal.estimated_value, deal.currency || 'RUB')}</div>
                 <div className="micro">Участников: {deal.participants_count || 1}</div>
-                {flow ? <div className="micro">Внесено: {formatCurrency(flow.payment_paid_amount, deal.currency || 'RUB')}</div> : null}
+                {flow ? <div className={`micro ${paid ? 'success-text' : ''}`}>{paid ? 'Оплачено' : partiallyPaid ? 'Частично оплачено' : 'Ожидает оплаты'} · {formatCurrency(flow.payment_paid_amount, deal.currency || 'RUB')}</div> : null}
               </td>
               <td>{formatDateTime(deal.created_at)}</td>
               <td>
                 <div className="registry-actions registry-actions--inline" onClick={(e) => e.stopPropagation()}>
                   <Link className="button-secondary" href={`/dashboard/contracts?deal_id=${deal.id}`}>{flow?.contract_status ? label('contractStatus', flow.contract_status) : 'Договор'}</Link>
-                  {contractSigned ? <Link className="button-secondary" href={`/dashboard/deals?open=${deal.id}&finance=1#deal-finance-popover`}>Финансы</Link> : null}
+                  <Link className="button-secondary" href={`/dashboard/deals?open=${deal.id}&pay=1#deal-payment-popover`}>Оплата</Link>
                   {flow?.application_id ? <Link className="button-secondary" href={`/dashboard/applications?deal_id=${deal.id}`}>Участник</Link> : null}
                 </div>
               </td>

@@ -584,7 +584,7 @@ export async function getDealFlowSummaries(dealIds: string[]): Promise<Record<st
   }
 
   for (const contract of asRows<{ id: string; deal_id: string | null; status: string | null; signed_at: string | null }>(contractsRes.data)) {
-    if (!contract.deal_id || !result[contract.deal_id]?.contract_id) continue
+    if (!contract.deal_id || result[contract.deal_id]?.contract_id) continue
     result[contract.deal_id].contract_id = contract.id
     result[contract.deal_id].contract_status = contract.status
     result[contract.deal_id].contract_signed_at = contract.signed_at

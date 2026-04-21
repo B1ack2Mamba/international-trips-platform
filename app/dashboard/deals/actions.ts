@@ -536,7 +536,7 @@ export async function updateDealPaymentProgressAction(formData: FormData) {
   })
 
   refreshDealPaths(dealId)
-  redirect(`/dashboard/deals?open=${encodeURIComponent(dealId)}&finance=1#deal-finance-popover`)
+  redirect(`/dashboard/deals?open=${encodeURIComponent(dealId)}&pay=1#deal-payment-popover`)
 }
 
 export async function transferDealOwnerAction(formData: FormData) {

@@ -20,7 +20,7 @@ export default async function DealsPage({
   const created = typeof params.created === 'string' ? params.created : ''
   const error = typeof params.error === 'string' ? params.error : ''
   const openDealId = typeof params.open === 'string' ? params.open : created
-  const financeMode = params.finance === '1'
+  const payMode = params.pay === '1'
 
   const [deals, leads, createdDeal, openDeal, programs, departures, partnerAccounts, managers, openPayments] = await Promise.all([
     getDeals(40),
@@ -45,7 +45,7 @@ export default async function DealsPage({
       <section className="section-head">
         <div>
           <h1 className="page-title">Сделки</h1>
-          <p className="muted">Сделка ведёт клиента до договора, оплаты и передачи в участников выезда. Финансы появляются после подписанного договора.</p>
+          <p className="muted">Сделка ведёт клиента до договора, оплаты и передачи в участников выезда. Оплата фиксируется прямо здесь, без отдельного раздела финансов.</p>
         </div>
       </section>
 
@@ -54,7 +54,6 @@ export default async function DealsPage({
           { label: 'Лиды', href: '/dashboard/leads' },
           { label: 'Сделки', href: '/dashboard/deals' },
           { label: 'Договоры', href: '/dashboard/contracts' },
-          { label: 'Финансы', href: '/dashboard/finance' },
           { label: 'Участники', href: '/dashboard/applications' },
         ]}
         current="Сделки"
@@ -123,7 +122,7 @@ export default async function DealsPage({
           <div className="section-head" style={{ marginBottom: 0 }}>
             <div>
               <h2 style={{ margin: 0 }}>Реестр сделок</h2>
-              <div className="micro">Видно, подписан ли договор, сколько оплачено и готов ли клиент к передаче в участников выезда.</div>
+              <div className="micro">Видно, есть ли договор, сколько оплачено и готов ли клиент к передаче в участников выезда.</div>
             </div>
           </div>
           {visibleDeals.length ? (
@@ -216,7 +215,7 @@ export default async function DealsPage({
                 <label>План закрытия<input name="close_date" type="date" defaultValue={openDeal.close_date || ''} /></label>
                 <label style={{ gridColumn: '1 / -1' }}>Примечания<textarea name="notes" defaultValue={openDeal.notes || ''} /></label>
               </div>
-              <div className="micro">Как только у сделки появляется сумма, в финреестре автоматически появляется строка платежа, а в фоновой очереди создаётся задача на договор.</div>
+              <div className="micro">Как только у сделки появляется сумма, система готовит строку оплаты. Договор создаётся отдельной кнопкой и привязывается к этой сделке.</div>
               <div className="form-actions"><button className="button">Сохранить контекст сделки</button></div>
             </form>
 
@@ -227,20 +226,27 @@ export default async function DealsPage({
                   <div className="micro">
                     {flowByDealId[openDeal.id]?.contract_status
                       ? `Договор: ${label('contractStatus', flowByDealId[openDeal.id].contract_status || '')}`
-                      : 'Сначала заключаем договор, потом открываем оплату.'}
+                      : 'Добавьте договор к сделке, затем фиксируйте оплату здесь.'}
                   </div>
                 </div>
                 <div className="form-actions">
                   <Link className="button-secondary" href={`/dashboard/contracts?deal_id=${openDeal.id}`}>Договор</Link>
-                  {flowByDealId[openDeal.id]?.contract_status === 'signed' ? (
-                    <Link className="button-secondary" href={`/dashboard/deals?open=${openDeal.id}&finance=1#deal-finance-popover`}>Финансы</Link>
-                  ) : null}
+                  <Link className="button-secondary" href={`/dashboard/deals?open=${openDeal.id}&pay=1#deal-payment-popover`}>Оплата</Link>
                 </div>
               </div>
 
-              {financeMode && flowByDealId[openDeal.id]?.contract_status === 'signed' ? (
-                <div id="deal-finance-popover" className="lead-inline-form">
+              {payMode ? (
+                <div id="deal-payment-popover" className="lead-inline-form">
                   <h3 style={{ margin: 0 }}>Оплата по сделке</h3>
+                  {flowByDealId[openDeal.id]?.contract_status !== 'signed' ? (
+                    <div className="notice">Договор ещё не подписан. Оплату можно подготовить, но финальный перевод в участников делайте после подписания договора.</div>
+                  ) : null}
+                  <div className="badge-row">
+                    <span className={`badge ${flowByDealId[openDeal.id]?.payment_amount && flowByDealId[openDeal.id].payment_paid_amount >= flowByDealId[openDeal.id].payment_amount ? 'success' : ''}`}>
+                      {flowByDealId[openDeal.id]?.payment_amount && flowByDealId[openDeal.id].payment_paid_amount >= flowByDealId[openDeal.id].payment_amount ? 'Оплачено' : flowByDealId[openDeal.id]?.payment_paid_amount ? 'Частично оплачено' : 'Ожидает оплаты'}
+                    </span>
+                    <span className="badge">{formatCurrency(flowByDealId[openDeal.id]?.payment_paid_amount || 0, openDeal.currency)} / {formatCurrency(flowByDealId[openDeal.id]?.payment_amount || openDeal.estimated_value || 0, openDeal.currency)}</span>
+                  </div>
                   {openPayments.length ? (
                     <form action={updateDealPaymentProgressAction}>
                       <input type="hidden" name="deal_id" value={openDeal.id} />
@@ -253,12 +259,12 @@ export default async function DealsPage({
                         </select>
                       </label>
                       <label>Клиент внёс<input name="paid_amount" type="number" min="0" step="1000" defaultValue={flowByDealId[openDeal.id]?.payment_paid_amount || 0} /></label>
-                      <div className="form-actions"><button className="button-secondary">Записать оплату</button></div>
+                      <div className="form-actions"><button className="button-secondary">Частично оплачено</button></div>
                     </form>
                   ) : <div className="notice">Платёж появится после сохранения суммы сделки. Если суммы ещё нет, укажите её в редакции выше.</div>}
                   <form action={completeDealPaymentAndMoveAction}>
                     <input type="hidden" name="deal_id" value={openDeal.id} />
-                    <div className="form-actions"><button className="button">Оплачено полностью → в участников</button></div>
+                    <div className="form-actions"><button className="button">Оплачено полностью</button></div>
                   </form>
                 </div>
               ) : null}
