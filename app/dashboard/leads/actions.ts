@@ -45,7 +45,13 @@ export async function takeLead(formData: FormData) {
     .from('leads')
     .select('id, converted_deal_id, contact_name_raw, desired_country, desired_program:programs(title)')
     .eq('id', leadId)
-    .maybeSingle()
+    .maybeSingle<{
+      id: string
+      converted_deal_id: string | null
+      contact_name_raw: string | null
+      desired_country: string | null
+      desired_program: { title: string | null } | { title: string | null }[] | null
+    }>()
 
   if (lead?.converted_deal_id) {
     refreshLeadPaths(leadId)
@@ -53,7 +59,8 @@ export async function takeLead(formData: FormData) {
     redirect(`/dashboard/deals?open=${encodeURIComponent(String(lead.converted_deal_id))}`)
   }
 
-  const desiredProgramTitle = (Array.isArray(lead?.desired_program) ? lead?.desired_program?.[0]?.title : lead?.desired_program?.title) || ''
+  const desiredProgram = Array.isArray(lead?.desired_program) ? (lead?.desired_program[0] ?? null) : (lead?.desired_program ?? null)
+  const desiredProgramTitle = desiredProgram?.title || ''
   const title = [lead?.desired_country, desiredProgramTitle, lead?.contact_name_raw].filter(Boolean).join(' · ') || 'Сделка из лида'
 
   const { data: dealId, error } = await supabase.rpc('convert_lead_to_deal', {

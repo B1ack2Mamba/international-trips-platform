@@ -365,17 +365,19 @@ export async function quickCreateApplicationFromDealAction(formData: FormData) {
     redirect(`/dashboard/deals?error=${encodeURIComponent(dealError?.message ?? 'Не удалось найти сделку для передачи в заявки')}`)
   }
 
+  const lead = Array.isArray(deal.lead) ? (deal.lead[0] ?? null) : deal.lead
+
   const inferredParticipantName =
-    deal.lead?.contact_name_raw?.trim() ||
+    lead?.contact_name_raw?.trim() ||
     deal.title?.trim() ||
     'Участник из сделки'
 
   const result = await createApplicationFromDealBestEffort(supabase, {
     p_deal_id: dealId,
     p_participant_name: inferredParticipantName,
-    p_guardian_name: deal.lead?.contact_name_raw?.trim() || null,
-    p_guardian_phone: deal.lead?.phone_raw?.trim() || null,
-    p_guardian_email: deal.lead?.email_raw?.trim() || null,
+    p_guardian_name: lead?.contact_name_raw?.trim() || null,
+    p_guardian_phone: lead?.phone_raw?.trim() || null,
+    p_guardian_email: lead?.email_raw?.trim() || null,
     p_amount_total: Number(deal.estimated_value ?? 0) || null,
     p_due_date: null,
     p_payment_label: 'Предоплата',

@@ -43,6 +43,9 @@ function normalizeDealRow(row: DealRow): DealRow {
 function normalizeApplicationRow(row: ApplicationRow): ApplicationRow {
   return {
     ...row,
+    visa_status: row.visa_status ?? 'not_started',
+    contract_status: row.contract_status ?? 'draft',
+    payment_status: row.payment_status ?? 'pending',
     deal: firstRelation(row.deal),
     departure: firstRelation(row.departure),
   }
@@ -68,6 +71,14 @@ function normalizeApplicationDetailRow(row: ApplicationDetailRow): ApplicationDe
           program: firstRelation(departure.program),
         }
       : null,
+  }
+}
+
+
+function normalizeDepartureRow(row: DepartureRow): DepartureRow {
+  return {
+    ...row,
+    program: firstRelation(row.program),
   }
 }
 
@@ -222,10 +233,6 @@ export type DepartureRow = {
   base_price: number
   currency: string
   program_id?: string
-}
-
-
-export type DepartureDetailRow = DepartureRow & {
   program?: {
     id: string
     title: string
@@ -236,6 +243,9 @@ export type DepartureDetailRow = DepartureRow & {
   } | null
 }
 
+
+export type DepartureDetailRow = DepartureRow
+
 export type ApplicationRow = {
   id: string
   deal_id: string | null
@@ -245,10 +255,12 @@ export type ApplicationRow = {
   guardian_phone?: string | null
   guardian_email?: string | null
   status: string
-  visa_status: string | null
+  visa_status: string
+  contract_status: string
   documents_ready: boolean
   amount_total: number
   amount_paid: number
+  payment_status: string
   created_at: string
   deal?: { id: string; title: string; stage: string } | null
   departure?: MiniDeparture
@@ -656,11 +668,11 @@ export type ApplicationsReadDebug = {
 async function selectApplicationsRowsWithDebug(
   options: { limit?: number; dealId?: string; departureId?: string; createdId?: string | null } = {},
 ): Promise<{ rows: ApplicationRow[]; debug: ApplicationsReadDebug }> {
-  const fullSelect = `id, deal_id, departure_id, participant_name, guardian_name, guardian_phone, guardian_email, status, visa_status,
-      documents_ready, amount_total, amount_paid, created_at,
+  const fullSelect = `id, deal_id, departure_id, participant_name, guardian_name, guardian_phone, guardian_email, status, visa_status, contract_status,
+      documents_ready, amount_total, amount_paid, payment_status, created_at,
       deal:deals(id, title, stage),
       departure:departures(id, departure_name, start_date, status)`
-  const minimalSelect = 'id, deal_id, departure_id, participant_name, guardian_name, guardian_phone, guardian_email, status, visa_status, documents_ready, amount_total, amount_paid, created_at'
+  const minimalSelect = 'id, deal_id, departure_id, participant_name, guardian_name, guardian_phone, guardian_email, status, visa_status, contract_status, documents_ready, amount_total, amount_paid, payment_status, created_at'
 
   const attempts: string[] = []
 
