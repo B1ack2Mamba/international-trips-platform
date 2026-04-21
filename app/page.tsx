@@ -1,32 +1,5 @@
 import Link from 'next/link'
 
-const systemNodes = [
-  {
-    title: 'Мозг',
-    text: 'Кабинет руководителя, KPI, роли, контроль качества и маршрутизация решений.',
-  },
-  {
-    title: 'Двигатель',
-    text: 'Лидогенерация, продажи, скрипты, follow-up, SLA на ответы и конверсия в заявки.',
-  },
-  {
-    title: 'Коробка передач',
-    text: 'Сделки, заявки, оплаты, дедлайны, документы и handoff от продаж в операционку.',
-  },
-  {
-    title: 'Колёса',
-    text: 'Программы, выезды, группы, участники, партнёры, логистика и выездная реализация.',
-  },
-  {
-    title: 'Тормоза',
-    text: 'RLS, роли, анти-переманивание, единый клиентский контур и обязательные поля.',
-  },
-  {
-    title: 'Радар',
-    text: 'Сайт, Telegram, партнёры, школы, контекст, реферальные каналы, webhooks и формы.',
-  },
-]
-
 export default function HomePage() {
   return (
     <main>
@@ -34,36 +7,30 @@ export default function HomePage() {
         <div className="hero-grid">
           <div className="hero-card stack">
             <div className="badge-row">
-              <span className="badge success">Готово для Vercel</span>
-              <span className="badge success">Готово для Supabase</span>
-              <span className="badge">CRM + портал + операционка</span>
+              <span className="badge success">CRM активна</span>
+              <span className="badge">International Trips</span>
             </div>
-            <h1>Платформа, которая перестаёт быть человеком-оркестром.</h1>
+            <h1>Рабочий центр международных поездок</h1>
             <p className="lead">
-              Это стартовый каркас для проекта международных поездок: единый сайт, intake лидов,
-              продажная CRM, операционный контур выездов, заявки, оплаты и скрипты.
+              Лиды, сделки, заявки, оплаты, документы, выезды и партнёры в одном внутреннем контуре.
             </p>
             <div className="form-actions">
-              <Link className="button" href="/programs">
-                Открыть публичный портал
+              <Link className="button" href="/dashboard">
+                Открыть CRM
               </Link>
-              <Link className="button-secondary" href="/dashboard">
-                Перейти в кабинет
-              </Link>
+              <Link className="button-secondary" href="/programs">Каталог программ</Link>
             </div>
           </div>
           <div className="hero-card stack">
-            <h2 style={{ margin: 0 }}>Что уже собрано в MVP</h2>
+            <h2 style={{ margin: 0 }}>Быстрый маршрут</h2>
             <ul className="list">
-              <li>Публичный каталог программ и страница каждой программы</li>
-              <li>Форма захвата лида напрямую в Supabase</li>
-              <li>Кабинет руководителя и базовые CRM-модули</li>
-              <li>Миграции БД, роли, RLS и стартовые данные</li>
-              <li>Каркас для Edge Functions и webhook-интеграций</li>
+              <li><Link href="/dashboard/leads">Лиды и первичный контакт</Link></li>
+              <li><Link href="/dashboard/deals">Сделки и коммерческая воронка</Link></li>
+              <li><Link href="/dashboard/ops">Операционка выездов</Link></li>
+              <li><Link href="/dashboard/finance">Финансы и оплаты</Link></li>
             </ul>
             <div className="notice">
-              Система не пытается заменить стратегию. Она убирает ручной хаос, чтобы стратегия не
-              тонула в WhatsApp, Excel и чужих посредниках.
+              Для входа используйте админский аккаунт с активной ролью в Supabase profiles.
             </div>
           </div>
         </div>
@@ -72,48 +39,23 @@ export default function HomePage() {
       <section className="section container">
         <div className="section-head">
           <div>
-            <h2 className="page-title">Узлы машины</h2>
-            <p className="muted">Вид с уровня архитектора: где мозг, где двигатель, где колёса.</p>
+            <h2 className="page-title">Основной CRM-поток</h2>
+            <p className="muted">Один рабочий маршрут от заявки до поездки и оплаты.</p>
           </div>
         </div>
         <div className="grid-3">
-          {systemNodes.map((node) => (
-            <article key={node.title} className="card stack">
-              <h3 style={{ margin: 0 }}>{node.title}</h3>
-              <p className="muted" style={{ margin: 0 }}>
-                {node.text}
-              </p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="section container">
-        <div className="grid-2">
-          <div className="card stack">
-            <h2 style={{ margin: 0 }}>Какая логика потока уже учтена</h2>
-            <ul className="list">
-              <li>Источник трафика → лид → квалификация → сделка → заявка → оплата → выезд</li>
-              <li>Роли разделены: руководитель, продажи, операционка, финансы</li>
-              <li>Публичный портал и внутренняя CRM работают на одном ядре данных</li>
-              <li>Партнёрский канал учитывается отдельно, но клиент остаётся в вашей системе</li>
-            </ul>
-          </div>
-          <div className="card stack">
-            <h2 style={{ margin: 0 }}>Следующий прагматичный шаг</h2>
-            <p className="muted" style={{ margin: 0 }}>
-              Развернуть Supabase, заполнить env, применить миграции, назначить owner-пользователя
-              и начать гонять живые лиды через платформу уже на этой неделе.
-            </p>
-            <div className="form-actions">
-              <Link className="button" href="/login">
-                Войти и проверить кабинет
-              </Link>
-              <Link className="button-secondary" href="/programs">
-                Протестировать публичную форму
-              </Link>
-            </div>
-          </div>
+          <Link href="/dashboard/leads" className="card stack">
+            <h3 style={{ margin: 0 }}>1. Лид</h3>
+            <p className="muted" style={{ margin: 0 }}>Заявка из сайта, партнёра или ручного ввода попадает в CRM.</p>
+          </Link>
+          <Link href="/dashboard/deals" className="card stack">
+            <h3 style={{ margin: 0 }}>2. Сделка</h3>
+            <p className="muted" style={{ margin: 0 }}>Менеджер квалифицирует клиента и ведёт коммерческий статус.</p>
+          </Link>
+          <Link href="/dashboard/applications" className="card stack">
+            <h3 style={{ margin: 0 }}>3. Заявка</h3>
+            <p className="muted" style={{ margin: 0 }}>После продажи запускаются документы, оплаты и операционный handoff.</p>
+          </Link>
         </div>
       </section>
       <div className="footer-space" />

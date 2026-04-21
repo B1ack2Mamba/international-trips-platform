@@ -460,11 +460,6 @@ form {
   margin-top: 0;
 }
 
-.notice-danger {
-  background: rgba(239, 68, 68, 0.08);
-  border-color: rgba(239, 68, 68, 0.22);
-}
-
 .table-empty-state {
   display: grid;
   gap: 8px;
@@ -483,6 +478,11 @@ form {
   padding: 14px 16px;
   background: rgba(125, 211, 252, 0.08);
   border: 1px solid rgba(125, 211, 252, 0.2);
+}
+
+.notice-danger {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.22);
 }
 
 

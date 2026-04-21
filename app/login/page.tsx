@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { login, signup } from './actions'
+import { login } from './actions'
 
 export default async function LoginPage({
   searchParams,
@@ -8,20 +8,21 @@ export default async function LoginPage({
 }) {
   const params = (await searchParams) ?? {}
   const status = typeof params.status === 'string' ? params.status : ''
+  const error = typeof params.error === 'string' ? params.error : ''
 
   return (
     <main className="container section">
       <div className="grid-2">
         <section className="card stack">
           <div className="badge-row">
-            <span className="badge success">Авторизация</span>
-            <span className="badge">Supabase SSR</span>
+            <span className="badge success">CRM доступ</span>
+            <span className="badge">Админ-панель</span>
           </div>
-          <h1 className="page-title">Вход в платформу</h1>
+          <h1 className="page-title">Вход в CRM</h1>
           <p className="muted" style={{ margin: 0 }}>
-            Внутренний кабинет работает через модуль авторизации Supabase, а сессия обновляется серверным
-            прокси-слоем.
+            Используйте рабочий email администратора или сотрудника с активной ролью в CRM.
           </p>
+          {error ? <div className="notice notice-danger">{error}</div> : null}
           {status === 'signup' ? (
             <div className="notice">
               Аккаунт создан. Если у вас включено подтверждение почты, подтвердите email и войдите.
@@ -31,35 +32,31 @@ export default async function LoginPage({
             <div className="form-grid">
               <label>
                 Email
-                <input name="email" type="email" placeholder="owner@example.com" required />
+                <input name="email" type="email" defaultValue="storyguild9@gmail.com" required />
               </label>
               <label>
                 Пароль
-                <input name="password" type="password" placeholder="••••••••" required />
+                <input name="password" type="password" placeholder="Введите пароль" required />
               </label>
             </div>
             <div className="form-actions">
               <button className="button" formAction={login}>
                 Войти
               </button>
-              <button className="button-secondary" formAction={signup}>
-                Зарегистрироваться
-              </button>
             </div>
           </form>
         </section>
 
         <section className="card stack">
-          <h2 style={{ margin: 0 }}>Что сделать после первого входа</h2>
+          <h2 style={{ margin: 0 }}>Проверка доступа</h2>
           <ol className="list">
-            <li>Назначить первой учётке роль <code>owner</code> в таблице <code>public.profiles</code>.</li>
-            <li>Проверить стартовые данные: программы, выезды, скрипты и тестовые лиды.</li>
-            <li>Открыть публичный каталог и отправить тестовую заявку самому себе.</li>
-            <li>Убедиться, что лид появился в разделе «Лиды» и виден в CRM.</li>
+            <li>Пользователь должен существовать в Supabase Auth.</li>
+            <li>В <code>public.profiles</code> должна быть активная роль <code>owner</code>, <code>admin</code> или staff.</li>
+            <li>После входа система ведёт сразу в рабочий обзор CRM.</li>
           </ol>
           <div className="form-actions">
             <Link className="button-secondary" href="/programs">
-              Протестировать публичный портал
+              Публичный каталог
             </Link>
           </div>
         </section>
