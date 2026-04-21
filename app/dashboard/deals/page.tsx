@@ -1,9 +1,10 @@
-import { createDeal, transferDealOwnerAction, updateDealContextAction } from './actions'
+import Link from 'next/link'
+import { completeDealPaymentAndMoveAction, createDeal, transferDealOwnerAction, updateDealContextAction, updateDealPaymentProgressAction } from './actions'
 import { ProcessTrail } from '@/components/process-trail'
 import { formatCurrency, formatDate } from '@/lib/format'
 import { label } from '@/lib/labels'
 import { DealRegistryTable } from '@/components/deal-registry-table'
-import { getAssignableManagers, getDealById, getDeals, getDepartures, getPartnerAccounts, getPrograms, getRecentLeads } from '@/lib/queries'
+import { getAssignableManagers, getDealById, getDealFlowSummaries, getDeals, getDepartures, getPartnerAccounts, getPaymentsByDeal, getPrograms, getRecentLeads } from '@/lib/queries'
 
 function leadInterestLine(deal: Awaited<ReturnType<typeof getDealById>>) {
   if (!deal) return 'Интерес не указан'
@@ -19,8 +20,9 @@ export default async function DealsPage({
   const created = typeof params.created === 'string' ? params.created : ''
   const error = typeof params.error === 'string' ? params.error : ''
   const openDealId = typeof params.open === 'string' ? params.open : created
+  const financeMode = params.finance === '1'
 
-  const [deals, leads, createdDeal, openDeal, programs, departures, partnerAccounts, managers] = await Promise.all([
+  const [deals, leads, createdDeal, openDeal, programs, departures, partnerAccounts, managers, openPayments] = await Promise.all([
     getDeals(40),
     getRecentLeads(50),
     created ? getDealById(created) : Promise.resolve(null),
@@ -29,9 +31,11 @@ export default async function DealsPage({
     openDealId ? getDepartures(100) : Promise.resolve([]),
     openDealId ? getPartnerAccounts(100) : Promise.resolve([]),
     openDealId ? getAssignableManagers(100) : Promise.resolve([]),
+    openDealId ? getPaymentsByDeal(openDealId, 20) : Promise.resolve([]),
   ])
 
   const visibleDeals = createdDeal && !deals.some((deal) => deal.id === createdDeal.id) ? [createdDeal, ...deals] : deals
+  const flowByDealId = await getDealFlowSummaries(visibleDeals.map((deal) => deal.id))
   const matchingDepartures = openDeal?.program_id
     ? departures.filter((departure) => departure.program_id === openDeal.program_id || departure.id === openDeal.departure_id)
     : departures
@@ -41,7 +45,7 @@ export default async function DealsPage({
       <section className="section-head">
         <div>
           <h1 className="page-title">Сделки</h1>
-          <p className="muted">Сделка живёт здесь как главный рабочий объект. После установки суммы запись сразу появляется в финансах, а справа раскрывается компактная редакция с данными лида, менеджером и контекстом сделки.</p>
+          <p className="muted">Сделка ведёт клиента до договора, оплаты и передачи в участников выезда. Финансы появляются после подписанного договора.</p>
         </div>
       </section>
 
@@ -49,7 +53,9 @@ export default async function DealsPage({
         items={[
           { label: 'Лиды', href: '/dashboard/leads' },
           { label: 'Сделки', href: '/dashboard/deals' },
+          { label: 'Договоры', href: '/dashboard/contracts' },
           { label: 'Финансы', href: '/dashboard/finance' },
+          { label: 'Участники', href: '/dashboard/applications' },
         ]}
         current="Сделки"
       />
@@ -117,11 +123,11 @@ export default async function DealsPage({
           <div className="section-head" style={{ marginBottom: 0 }}>
             <div>
               <h2 style={{ margin: 0 }}>Реестр сделок</h2>
-              <div className="micro">Плотный рабочий режим: главное видеть контакт, интерес, менеджера и быстрый переход в финансы без лишней высоты строк.</div>
+              <div className="micro">Видно, подписан ли договор, сколько оплачено и готов ли клиент к передаче в участников выезда.</div>
             </div>
           </div>
           {visibleDeals.length ? (
-            <DealRegistryTable deals={visibleDeals} openDealId={openDeal?.id} />
+            <DealRegistryTable deals={visibleDeals} openDealId={openDeal?.id} flowByDealId={flowByDealId} />
           ) : (
             <div className="notice">Активных сделок в продаже сейчас нет. Новые сделки появляются здесь после создания вручную или из кнопки «Взять» у лида.</div>
           )}
@@ -213,6 +219,50 @@ export default async function DealsPage({
               <div className="micro">Как только у сделки появляется сумма, в финреестре автоматически появляется строка платежа, а в фоновой очереди создаётся задача на договор.</div>
               <div className="form-actions"><button className="button">Сохранить контекст сделки</button></div>
             </form>
+
+            <div className="card-subtle stack">
+              <div className="compact-toolbar">
+                <div>
+                  <h3 style={{ margin: 0 }}>Договор и оплата</h3>
+                  <div className="micro">
+                    {flowByDealId[openDeal.id]?.contract_status
+                      ? `Договор: ${label('contractStatus', flowByDealId[openDeal.id].contract_status || '')}`
+                      : 'Сначала заключаем договор, потом открываем оплату.'}
+                  </div>
+                </div>
+                <div className="form-actions">
+                  <Link className="button-secondary" href={`/dashboard/contracts?deal_id=${openDeal.id}`}>Договор</Link>
+                  {flowByDealId[openDeal.id]?.contract_status === 'signed' ? (
+                    <Link className="button-secondary" href={`/dashboard/deals?open=${openDeal.id}&finance=1#deal-finance-popover`}>Финансы</Link>
+                  ) : null}
+                </div>
+              </div>
+
+              {financeMode && flowByDealId[openDeal.id]?.contract_status === 'signed' ? (
+                <div id="deal-finance-popover" className="lead-inline-form">
+                  <h3 style={{ margin: 0 }}>Оплата по сделке</h3>
+                  {openPayments.length ? (
+                    <form action={updateDealPaymentProgressAction}>
+                      <input type="hidden" name="deal_id" value={openDeal.id} />
+                      <label>
+                        Платёж
+                        <select name="payment_id" defaultValue={openPayments[0]?.id}>
+                          {openPayments.map((payment) => (
+                            <option key={payment.id} value={payment.id}>{payment.label} · {formatCurrency(payment.amount, payment.currency)}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label>Клиент внёс<input name="paid_amount" type="number" min="0" step="1000" defaultValue={flowByDealId[openDeal.id]?.payment_paid_amount || 0} /></label>
+                      <div className="form-actions"><button className="button-secondary">Записать оплату</button></div>
+                    </form>
+                  ) : <div className="notice">Платёж появится после сохранения суммы сделки. Если суммы ещё нет, укажите её в редакции выше.</div>}
+                  <form action={completeDealPaymentAndMoveAction}>
+                    <input type="hidden" name="deal_id" value={openDeal.id} />
+                    <div className="form-actions"><button className="button">Оплачено полностью → в участников</button></div>
+                  </form>
+                </div>
+              ) : null}
+            </div>
           </aside>
         ) : null}
       </div>

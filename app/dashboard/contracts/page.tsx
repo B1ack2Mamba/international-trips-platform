@@ -38,10 +38,10 @@ export default async function ContractsPage({
       <section className="section-head">
         <div>
           <h1 className="page-title">Договоры</h1>
-          <p className="muted">Договор должен жить не отдельно в Word, а как продолжение конкретной заявки и сделки.</p>
+          <p className="muted">После сделки следующий шаг — договор. Здесь видно, отправлен он, просмотрен или уже подписан.</p>
         </div>
         <div className="form-actions">
-          {deal ? <Link className="button-secondary" href={`/dashboard/deals/${deal.id}`}>К сделке</Link> : null}
+          {deal ? <Link className="button-secondary" href={`/dashboard/deals?open=${deal.id}#deal-editor`}>К сделке</Link> : null}
           {application ? <Link className="button-secondary" href={`/dashboard/applications/${application.id}`}>К заявке</Link> : null}
           {(applicationId || linkedDealId) ? <Link className="button-secondary" href="/dashboard/contracts">Показать все договоры</Link> : null}
         </div>
@@ -51,9 +51,9 @@ export default async function ContractsPage({
         items={[
           { label: 'Лиды', href: '/dashboard/leads' },
           { label: 'Сделки', href: '/dashboard/deals' },
-          { label: 'Заявки', href: '/dashboard/applications' },
           { label: 'Договоры', href: '/dashboard/contracts' },
           { label: 'Финансы', href: '/dashboard/finance' },
+          { label: 'Участники', href: '/dashboard/applications' },
         ]}
         current="Договоры"
       />
@@ -64,16 +64,16 @@ export default async function ContractsPage({
           <div className="process-trail">
             <span className="process-trail-item">Сделка</span>
             <span className="process-trail-arrow">→</span>
-            <span className="process-trail-item">Заявка</span>
-            <span className="process-trail-arrow">→</span>
             <span className="process-trail-item active">Договор</span>
             <span className="process-trail-arrow">→</span>
             <span className="process-trail-item">Финансы</span>
+            <span className="process-trail-arrow">→</span>
+            <span className="process-trail-item">Участники</span>
           </div>
           <ul className="list">
-            <li>Договор создаётся из карточки заявки, а не сам по себе из реестра.</li>
-            <li>У одной сделки может быть несколько заявок и несколько договоров.</li>
-            <li>После создания договор можно открыть семье и дальше вести его до отправки, просмотра и подписи.</li>
+            <li>Договор является следующим этапом после сделки.</li>
+            <li>В сделках видно, заключён договор или клиент ещё ждёт подписания.</li>
+            <li>После подписания в сделке открывается финансовое окно и передача в участников выезда.</li>
           </ul>
           <div className="flow-card-links">
             <Link className="button-secondary" href="/dashboard/applications">Открыть заявки</Link>

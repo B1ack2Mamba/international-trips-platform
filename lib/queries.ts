@@ -195,6 +195,18 @@ export type DealRow = {
   departure?: MiniDeparture
 }
 
+export type DealFlowSummary = {
+  deal_id: string
+  contract_id: string | null
+  contract_status: string | null
+  contract_signed_at: string | null
+  payment_id: string | null
+  payment_status: string | null
+  payment_amount: number
+  payment_paid_amount: number
+  application_id: string | null
+}
+
 export type AccountRow = {
   id: string
   display_name: string
@@ -527,10 +539,75 @@ export async function getUnassignedLeads(limit = 80): Promise<LeadRow[]> {
       desired_departure:departures(id, departure_name, start_date, status)`)
     .is('owner_user_id', null)
     .is('converted_deal_id', null)
-    .eq('status', 'new')
+    .in('status', ['new', 'assigned', 'in_progress', 'qualified'])
     .order('created_at', { ascending: false })
     .limit(limit)
   return asRows<LeadRow>(data).map(normalizeLeadRow)
+}
+
+export async function getDealFlowSummaries(dealIds: string[]): Promise<Record<string, DealFlowSummary>> {
+  const uniqueDealIds = [...new Set(dealIds.filter(Boolean))]
+  if (!uniqueDealIds.length) return {}
+
+  const supabase = hasServiceRole() ? createAdminClient() : await createClient()
+  const [contractsRes, paymentsRes, applicationsRes] = await Promise.all([
+    supabase
+      .from('contracts')
+      .select('id, deal_id, status, signed_at, created_at')
+      .in('deal_id', uniqueDealIds)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('payments')
+      .select('id, deal_id, amount, status, metadata, created_at')
+      .in('deal_id', uniqueDealIds)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('applications')
+      .select('id, deal_id, created_at')
+      .in('deal_id', uniqueDealIds)
+      .order('created_at', { ascending: false }),
+  ])
+
+  const result: Record<string, DealFlowSummary> = {}
+  for (const id of uniqueDealIds) {
+    result[id] = {
+      deal_id: id,
+      contract_id: null,
+      contract_status: null,
+      contract_signed_at: null,
+      payment_id: null,
+      payment_status: null,
+      payment_amount: 0,
+      payment_paid_amount: 0,
+      application_id: null,
+    }
+  }
+
+  for (const contract of asRows<{ id: string; deal_id: string | null; status: string | null; signed_at: string | null }>(contractsRes.data)) {
+    if (!contract.deal_id || !result[contract.deal_id]?.contract_id) continue
+    result[contract.deal_id].contract_id = contract.id
+    result[contract.deal_id].contract_status = contract.status
+    result[contract.deal_id].contract_signed_at = contract.signed_at
+  }
+
+  for (const payment of asRows<{ id: string; deal_id: string | null; amount: number | null; status: string | null; metadata?: JsonMap }>(paymentsRes.data)) {
+    if (!payment.deal_id) continue
+    const summary = result[payment.deal_id]
+    if (!summary) continue
+    if (!summary.payment_id) {
+      summary.payment_id = payment.id
+      summary.payment_status = payment.status
+    }
+    summary.payment_amount += Number(payment.amount ?? 0)
+    summary.payment_paid_amount += Number(payment.metadata?.paid_amount ?? (payment.status === 'paid' ? payment.amount : 0) ?? 0)
+  }
+
+  for (const application of asRows<{ id: string; deal_id: string | null }>(applicationsRes.data)) {
+    if (!application.deal_id || result[application.deal_id]?.application_id) continue
+    result[application.deal_id].application_id = application.id
+  }
+
+  return result
 }
 
 export async function getMyLeads(ownerUserId: string, limit = 80): Promise<LeadRow[]> {

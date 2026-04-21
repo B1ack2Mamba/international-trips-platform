@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { convertLeadToDeal, transferLeadOwner, updateLeadStatus } from '@/app/dashboard/leads/actions'
+import { convertLeadToDeal, generateLeadScriptAction, transferLeadOwner, updateLeadStatus } from '@/app/dashboard/leads/actions'
 import { LeadRegistryTable } from '@/components/lead-registry-table'
 import { LeadWorkspaceDrawer } from '@/components/lead-workspace-drawer'
 import { getLeadAssignableProfiles, type LeadAssignableProfile } from '@/lib/lead-access'
@@ -13,10 +13,14 @@ function MyLeadActionPanel({
   lead,
   assignableProfiles,
   mode,
+  historyOpen,
+  activities,
 }: {
   lead: LeadRow
   assignableProfiles: LeadAssignableProfile[]
   mode: 'default' | 'deal' | 'transfer'
+  historyOpen: boolean
+  activities: Awaited<ReturnType<typeof getActivityLog>>
 }) {
   const baseHref = `/dashboard/my-leads?open=${encodeURIComponent(lead.id)}`
   const transferTargets = assignableProfiles.filter((profile) => profile.id !== lead.owner_user_id)
@@ -50,6 +54,11 @@ function MyLeadActionPanel({
           </form>
         ) : null}
         <Link className="button-secondary" href={`${baseHref}&scripts=1#lead-editor`}>Скрипты</Link>
+        <form action={generateLeadScriptAction}>
+          <input type="hidden" name="lead_id" value={lead.id} />
+          <button className="button-secondary">ИИ-скрипт</button>
+        </form>
+        <Link className="button-secondary" href={historyOpen ? `${baseHref}#lead-action-panel` : `${baseHref}&history=1#lead-history`}>История действий</Link>
       </div>
 
       {mode === 'transfer' && canAct ? (
@@ -87,6 +96,29 @@ function MyLeadActionPanel({
           <div className="form-actions"><button className="button">Создать сделку</button></div>
         </form>
       ) : null}
+
+      {historyOpen ? (
+        <div id="lead-history" className="lead-inline-form">
+          <h3 style={{ margin: 0 }}>История действий</h3>
+          {activities.length ? (
+            <div className="table-wrap">
+              <table className="table">
+                <thead><tr><th>Событие</th><th>Комментарий</th><th>Кто</th><th>Когда</th></tr></thead>
+                <tbody>
+                  {activities.map((activity) => (
+                    <tr key={activity.id}>
+                      <td><div>{activity.title}</div><div className="micro">{activity.event_type}</div></td>
+                      <td style={{ whiteSpace: 'pre-wrap' }}>{activity.body || '—'}</td>
+                      <td>{activity.actor?.full_name || activity.actor?.email || 'система'}</td>
+                      <td>{formatDateTime(activity.created_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : <div className="muted">История пока пустая.</div>}
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -102,6 +134,7 @@ export default async function MyLeadsPage({
   const scriptsMode = params.scripts === '1'
   const dealMode = params.deal === '1'
   const transferMode = params.transfer === '1'
+  const historyOpen = params.history === '1'
   const error = typeof params.error === 'string' ? params.error : ''
 
   const [leads, openLead, assignableProfiles, activities] = await Promise.all([
@@ -149,6 +182,8 @@ export default async function MyLeadsPage({
                 lead={openLead}
                 assignableProfiles={assignableProfiles}
                 mode={dealMode ? 'deal' : transferMode ? 'transfer' : 'default'}
+                historyOpen={historyOpen}
+                activities={activities}
               />
             ) : null}
           />
@@ -165,31 +200,6 @@ export default async function MyLeadsPage({
         ) : null}
       </div>
 
-      <article className="card stack">
-        <div>
-          <h2 style={{ margin: 0 }}>История действий</h2>
-          <div className="micro">{openLead ? `Лид: ${openLead.contact_name_raw || 'Без имени'}` : 'Откройте клиента из списка, чтобы увидеть историю.'}</div>
-        </div>
-        {openLead ? (
-          activities.length ? (
-            <div className="table-wrap">
-              <table className="table">
-                <thead><tr><th>Событие</th><th>Комментарий</th><th>Кто</th><th>Когда</th></tr></thead>
-                <tbody>
-                  {activities.map((activity) => (
-                    <tr key={activity.id}>
-                      <td><div>{activity.title}</div><div className="micro">{activity.event_type}</div></td>
-                      <td>{activity.body || '—'}</td>
-                      <td>{activity.actor?.full_name || activity.actor?.email || 'система'}</td>
-                      <td>{formatDateTime(activity.created_at)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : <div className="muted">История пока пустая.</div>
-        ) : <div className="muted">История появится здесь после выбора клиента.</div>}
-      </article>
     </div>
   )
 }

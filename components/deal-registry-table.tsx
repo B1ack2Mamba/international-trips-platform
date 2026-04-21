@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { formatCurrency, formatDateTime } from '@/lib/format'
 import { label } from '@/lib/labels'
+import type { DealFlowSummary } from '@/lib/queries'
 
 export type DealRegistryRow = {
   id: string
@@ -30,9 +31,11 @@ export type DealRegistryRow = {
 export function DealRegistryTable({
   deals,
   openDealId,
+  flowByDealId = {},
 }: {
   deals: DealRegistryRow[]
   openDealId?: string
+  flowByDealId?: Record<string, DealFlowSummary>
 }) {
   const router = useRouter()
 
@@ -46,16 +49,19 @@ export function DealRegistryTable({
             <th>Менеджер / стадия</th>
             <th>Сумма</th>
             <th>Создана</th>
-            <th>Переход</th>
+            <th>Договор / оплата</th>
           </tr>
         </thead>
         <tbody>
-          {deals.map((deal) => (
-            <tr
-              key={deal.id}
-              className={`interactive-row ${openDealId === deal.id ? 'is-open-row' : ''}`}
-              onClick={() => router.push(`/dashboard/deals?open=${deal.id}#deal-editor`)}
-            >
+          {deals.map((deal) => {
+            const flow = flowByDealId[deal.id]
+            const contractSigned = flow?.contract_status === 'signed'
+            return (
+              <tr
+                key={deal.id}
+                className={`interactive-row ${openDealId === deal.id ? 'is-open-row' : ''}`}
+                onClick={() => router.push(`/dashboard/deals?open=${deal.id}#deal-editor`)}
+              >
               <td>
                 <div><strong>{deal.title}</strong></div>
                 <div className="micro">{deal.lead?.contact_name_raw || deal.account?.display_name || 'Без клиента'}</div>
@@ -72,16 +78,19 @@ export function DealRegistryTable({
               <td>
                 <div>{formatCurrency(deal.estimated_value, deal.currency || 'RUB')}</div>
                 <div className="micro">Участников: {deal.participants_count || 1}</div>
+                {flow ? <div className="micro">Внесено: {formatCurrency(flow.payment_paid_amount, deal.currency || 'RUB')}</div> : null}
               </td>
               <td>{formatDateTime(deal.created_at)}</td>
               <td>
                 <div className="registry-actions registry-actions--inline" onClick={(e) => e.stopPropagation()}>
-                  <Link className="button-secondary" href={`/dashboard/deals?open=${deal.id}#deal-editor`}>Открыть / править</Link>
-                  <Link className="button-secondary" href={`/dashboard/finance?deal_id=${deal.id}`}>К финансам</Link>
+                  <Link className="button-secondary" href={`/dashboard/contracts?deal_id=${deal.id}`}>{flow?.contract_status ? label('contractStatus', flow.contract_status) : 'Договор'}</Link>
+                  {contractSigned ? <Link className="button-secondary" href={`/dashboard/deals?open=${deal.id}&finance=1#deal-finance-popover`}>Финансы</Link> : null}
+                  {flow?.application_id ? <Link className="button-secondary" href={`/dashboard/applications?deal_id=${deal.id}`}>Участник</Link> : null}
                 </div>
               </td>
             </tr>
-          ))}
+            )
+          })}
         </tbody>
       </table>
     </div>

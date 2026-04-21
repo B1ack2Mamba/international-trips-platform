@@ -190,3 +190,97 @@ export async function transferLeadOwner(formData: FormData) {
   refreshLeadPaths(leadId)
   redirect('/dashboard/my-leads')
 }
+
+function fallbackLeadScript(input: {
+  name: string
+  phone: string
+  email: string
+  interest: string
+  departure: string
+  message: string
+  channel: string
+}) {
+  return [
+    `1. Начать с контекста: «${input.name}, вижу ваш интерес: ${input.interest}. Правильно понимаю, что сейчас важно подобрать безопасный и понятный вариант?»`,
+    `2. Уточнить цель: возраст/количество участников, желаемые даты, бюджетный коридор, что точно нельзя по формату поездки.`,
+    `3. Подтвердить доверие: проговорить программу, сопровождение, проживание, документы и следующие шаги без давления.`,
+    `4. Закрыть на действие: предложить 2 варианта и договориться о следующем касании сегодня/завтра.`,
+    `Данные клиента: телефон ${input.phone || 'не указан'}, email ${input.email || 'не указан'}, выезд ${input.departure || 'не выбран'}, канал ${input.channel}. Комментарий: ${input.message || 'нет'}.`,
+  ].join('\n\n')
+}
+
+export async function generateLeadScriptAction(formData: FormData) {
+  const { supabase, user } = await requireAbility('/dashboard/leads', 'lead.update')
+  const leadId = value(formData, 'lead_id')
+  const { data: lead, error } = await supabase
+    .from('leads')
+    .select(`id, contact_name_raw, phone_raw, email_raw, desired_country, source_channel, source_detail, message, metadata,
+      desired_program:programs(title, segment, short_description),
+      desired_departure:departures(departure_name, start_date)`)
+    .eq('id', leadId)
+    .maybeSingle()
+
+  if (error || !lead) {
+    redirect(`/dashboard/my-leads?error=${encodeURIComponent(error?.message ?? 'Лид не найден')}`)
+  }
+
+  const program = Array.isArray(lead.desired_program) ? (lead.desired_program[0] ?? null) : lead.desired_program
+  const departure = Array.isArray(lead.desired_departure) ? (lead.desired_departure[0] ?? null) : lead.desired_departure
+  const input = {
+    name: String(lead.contact_name_raw || 'Клиент'),
+    phone: String(lead.phone_raw || ''),
+    email: String(lead.email_raw || ''),
+    interest: String(program?.title || lead.desired_country || 'интерес не указан'),
+    departure: String(departure?.departure_name || ''),
+    message: String(lead.message || ''),
+    channel: String(lead.source_channel || ''),
+  }
+
+  let script = fallbackLeadScript(input)
+  const apiKey = process.env.OPENAI_API_KEY
+  if (apiKey) {
+    try {
+      const response = await fetch('https://api.openai.com/v1/responses', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: process.env.OPENAI_SCRIPT_MODEL || 'gpt-4.1-mini',
+          input: [
+            {
+              role: 'system',
+              content: 'Ты сильный менеджер продаж образовательных поездок. Пиши конкретный персональный скрипт звонка на русском, без общих фраз.',
+            },
+            {
+              role: 'user',
+              content: `Составь персональный скрипт для клиента. Имя: ${input.name}. Телефон: ${input.phone}. Email: ${input.email}. Интерес: ${input.interest}. Выезд: ${input.departure}. Канал: ${input.channel}. Комментарий клиента: ${input.message}. Верни структуру: открытие, 5 вопросов, аргументы, следующий шаг.`,
+            },
+          ],
+          max_output_tokens: 900,
+        }),
+      })
+      const json = await response.json() as { output_text?: string; error?: { message?: string } }
+      if (response.ok && json.output_text) script = json.output_text
+    } catch {
+      script = fallbackLeadScript(input)
+    }
+  }
+
+  await supabase.from('activity_log').insert({
+    actor_user_id: user!.id,
+    entity_type: 'lead',
+    entity_id: leadId,
+    event_type: 'ai_sales_script_generated',
+    title: 'ИИ-скрипт для клиента',
+    body: script,
+    metadata: {
+      generated_with: apiKey ? 'openai' : 'fallback',
+      interest: input.interest,
+    },
+  })
+
+  refreshLeadPaths(leadId)
+  redirect(`/dashboard/my-leads?open=${encodeURIComponent(leadId)}&history=1`)
+}

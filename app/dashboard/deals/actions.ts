@@ -395,6 +395,150 @@ export async function quickCreateApplicationFromDealAction(formData: FormData) {
   redirect(`/dashboard/applications?deal_id=${encodeURIComponent(dealId)}&created=${encodeURIComponent(result.applicationId)}&from=deal&mode=${encodeURIComponent(result.mode)}`)
 }
 
+export async function completeDealPaymentAndMoveAction(formData: FormData) {
+  const { supabase } = await requireAbility('/dashboard/deals', 'deal.application_create')
+  const dealId = value(formData, 'deal_id')
+  const reader = hasServiceRole() ? createAdminClient() : supabase
+
+  const { data: deal, error: dealError } = await reader
+    .from('deals')
+    .select(`
+      id,
+      title,
+      estimated_value,
+      currency,
+      close_date,
+      lead:leads!deals_lead_id_fkey(contact_name_raw, phone_raw, email_raw)
+    `)
+    .eq('id', dealId)
+    .maybeSingle()
+
+  if (dealError || !deal) {
+    redirect(`/dashboard/deals?error=${encodeURIComponent(dealError?.message ?? 'Сделка не найдена')}`)
+  }
+
+  const amount = Number(deal.estimated_value ?? 0)
+  const { data: payments } = await reader
+    .from('payments')
+    .select('id, amount, metadata')
+    .eq('deal_id', dealId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+
+  const payment = payments?.[0]
+  if (payment?.id) {
+    const total = Number(payment.amount ?? amount)
+    const metadata = payment.metadata && typeof payment.metadata === 'object' ? payment.metadata as Record<string, unknown> : {}
+    await supabase
+      .from('payments')
+      .update({
+        status: 'paid',
+        paid_at: new Date().toISOString(),
+        metadata: {
+          ...metadata,
+          paid_amount: total,
+          remaining_amount: 0,
+          completed_from_deal: true,
+        },
+      })
+      .eq('id', payment.id)
+  } else if (amount > 0) {
+    await supabase.from('payments').insert({
+      deal_id: dealId,
+      application_id: null,
+      payer_name: deal.title || 'Плательщик',
+      label: 'Оплата по сделке',
+      amount,
+      currency: deal.currency || 'RUB',
+      due_date: deal.close_date || null,
+      status: 'paid',
+      paid_at: new Date().toISOString(),
+      metadata: {
+        paid_amount: amount,
+        remaining_amount: 0,
+        completed_from_deal: true,
+      },
+    })
+  }
+
+  const lead = Array.isArray(deal.lead) ? (deal.lead[0] ?? null) : deal.lead
+  const result = await createApplicationFromDealBestEffort(supabase, {
+    p_deal_id: dealId,
+    p_participant_name: lead?.contact_name_raw?.trim() || deal.title?.trim() || 'Участник из сделки',
+    p_guardian_name: lead?.contact_name_raw?.trim() || null,
+    p_guardian_phone: lead?.phone_raw?.trim() || null,
+    p_guardian_email: lead?.email_raw?.trim() || null,
+    p_amount_total: amount || null,
+    p_due_date: null,
+    p_payment_label: 'Полная оплата',
+    p_payment_amount: amount || null,
+    p_create_payment: false,
+  })
+
+  if (!result.applicationId) {
+    redirect(`/dashboard/deals?open=${encodeURIComponent(dealId)}&error=${encodeURIComponent(result.error ?? 'Оплата отмечена, но участник не создан')}`)
+  }
+
+  const { data: application } = await reader.from('applications').select('id, departure_id').eq('id', result.applicationId).maybeSingle()
+  await supabase.from('deals').update({ stage: 'won' }).eq('id', dealId)
+  refreshDealPaths(dealId, application?.id, application?.departure_id)
+  redirect(`/dashboard/applications?deal_id=${encodeURIComponent(dealId)}&created=${encodeURIComponent(result.applicationId)}&from=deal&paid=1`)
+}
+
+export async function updateDealPaymentProgressAction(formData: FormData) {
+  const { supabase, user } = await requireAbility('/dashboard/deals', 'deal.update')
+  const dealId = value(formData, 'deal_id')
+  const paymentId = value(formData, 'payment_id')
+  const paidAmount = Math.max(0, numberValue(formData, 'paid_amount') ?? 0)
+
+  const { data: payment, error: paymentError } = await supabase
+    .from('payments')
+    .select('id, amount, metadata')
+    .eq('id', paymentId)
+    .eq('deal_id', dealId)
+    .maybeSingle()
+
+  if (paymentError || !payment) {
+    redirect(`/dashboard/deals?open=${encodeURIComponent(dealId)}&error=${encodeURIComponent(paymentError?.message ?? 'Платёж по сделке не найден')}`)
+  }
+
+  const totalAmount = Number(payment.amount ?? 0)
+  const nextStatus = paidAmount >= totalAmount && totalAmount > 0 ? 'paid' : paidAmount > 0 ? 'partial' : 'due'
+  const baseMetadata = payment.metadata && typeof payment.metadata === 'object' ? payment.metadata as Record<string, unknown> : {}
+  await supabase
+    .from('payments')
+    .update({
+      status: nextStatus,
+      paid_at: paidAmount > 0 ? new Date().toISOString() : null,
+      metadata: {
+        ...baseMetadata,
+        paid_amount: paidAmount,
+        remaining_amount: Math.max(0, totalAmount - paidAmount),
+        updated_from_deal: true,
+        updated_by_user_id: user?.id ?? null,
+      },
+    })
+    .eq('id', paymentId)
+
+  await supabase.from('activity_log').insert({
+    actor_user_id: user?.id ?? null,
+    entity_type: 'deal',
+    entity_id: dealId,
+    event_type: 'deal_payment_progress_updated',
+    title: 'Обновлена оплата по сделке',
+    body: `Клиент внёс ${paidAmount} из ${totalAmount}.`,
+    metadata: {
+      payment_id: paymentId,
+      paid_amount: paidAmount,
+      total_amount: totalAmount,
+      status: nextStatus,
+    },
+  })
+
+  refreshDealPaths(dealId)
+  redirect(`/dashboard/deals?open=${encodeURIComponent(dealId)}&finance=1#deal-finance-popover`)
+}
+
 export async function transferDealOwnerAction(formData: FormData) {
   const { supabase, user } = await requireAbility('/dashboard/deals', 'deal.update')
   const dealId = value(formData, 'deal_id')
