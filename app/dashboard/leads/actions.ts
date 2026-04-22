@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { requireAbility } from '@/lib/auth'
+import { scheduleFirstTouchTask, scheduleInboundReplyTask, scheduleOutboundFollowupTask } from '@/lib/lead-automation'
 import { getLeadAssignableProfiles } from '@/lib/lead-access'
 
 function value(formData: FormData, key: string) {
@@ -67,6 +68,13 @@ export async function takeLead(formData: FormData) {
     title: 'Лид взят в работу',
     body: lead.contact_name_raw || 'Лид закреплён за менеджером.',
     metadata: { owner_user_id: user!.id },
+  })
+  await scheduleFirstTouchTask({
+    supabase,
+    actorUserId: user!.id,
+    leadId,
+    ownerUserId: user!.id,
+    contactName: lead.contact_name_raw,
   })
   refreshLeadPaths(leadId)
   redirect(`/dashboard/my-leads?open=${encodeURIComponent(leadId)}`)
@@ -189,7 +197,7 @@ export async function queueLeadManualMessageAction(formData: FormData) {
   const recipientPhone = value(formData, 'recipient_phone') || lead?.phone_raw || null
   const subject = value(formData, 'subject') || null
 
-  const { error } = await supabase.from('message_outbox').insert({
+  const { data: queuedMessage, error } = await supabase.from('message_outbox').insert({
     lead_id: leadId,
     channel: ['email', 'telegram', 'whatsapp', 'sms', 'internal'].includes(channel) ? channel : 'email',
     audience: 'family',
@@ -201,7 +209,7 @@ export async function queueLeadManualMessageAction(formData: FormData) {
     body,
     send_after: sendAfter ? new Date(sendAfter).toISOString() : new Date().toISOString(),
     metadata: { source: 'lead_card_manual_message' },
-  })
+  }).select('id').maybeSingle<{ id: string }>()
 
   if (error) redirect(`/dashboard/my-leads?open=${encodeURIComponent(leadId)}&error=${encodeURIComponent(error.message)}`)
 
@@ -212,7 +220,14 @@ export async function queueLeadManualMessageAction(formData: FormData) {
     event_type: 'lead_message_queued',
     title: 'Сообщение поставлено в очередь',
     body: subject ? `${subject}\n\n${body}` : body,
-    metadata: { channel, source: 'lead_card' },
+    metadata: { channel, source: 'lead_card', message_outbox_id: queuedMessage?.id ?? null },
+  })
+  await scheduleOutboundFollowupTask({
+    supabase,
+    actorUserId: user!.id,
+    leadId,
+    ownerUserId: lead?.owner_user_id ?? user!.id,
+    channel,
   })
 
   refreshLeadPaths(leadId)
@@ -244,7 +259,7 @@ export async function recordLeadIncomingMessageAction(formData: FormData) {
   const subject = value(formData, 'subject') || null
   const receivedAt = value(formData, 'received_at')
 
-  const { error } = await supabase.from('message_inbox').insert({
+  const { data: inboxMessage, error } = await supabase.from('message_inbox').insert({
     lead_id: leadId,
     channel: ['email', 'telegram', 'whatsapp', 'sms', 'internal'].includes(channel) ? channel : 'email',
     audience: 'family',
@@ -256,7 +271,7 @@ export async function recordLeadIncomingMessageAction(formData: FormData) {
     provider: 'manual',
     received_at: receivedAt ? new Date(receivedAt).toISOString() : new Date().toISOString(),
     metadata: { source: 'lead_card_manual_inbound' },
-  })
+  }).select('id').maybeSingle<{ id: string }>()
 
   if (error) redirect(`/dashboard/my-leads?open=${encodeURIComponent(leadId)}&error=${encodeURIComponent(error.message)}`)
 
@@ -267,7 +282,14 @@ export async function recordLeadIncomingMessageAction(formData: FormData) {
     event_type: 'lead_inbound_message_recorded',
     title: 'Входящее сообщение добавлено',
     body: subject ? `${subject}\n\n${body}` : body,
-    metadata: { channel, source: 'lead_card' },
+    metadata: { channel, source: 'lead_card', message_inbox_id: inboxMessage?.id ?? null },
+  })
+  await scheduleInboundReplyTask({
+    supabase,
+    actorUserId: user!.id,
+    leadId,
+    ownerUserId: lead?.owner_user_id ?? user!.id,
+    channel,
   })
 
   refreshLeadPaths(leadId)
@@ -343,6 +365,12 @@ export async function transferLeadOwner(formData: FormData) {
     title: 'Лид передан другому менеджеру',
     body: note || 'Ответственный менеджер обновлён.',
     metadata: { owner_user_id: ownerUserId },
+  })
+  await scheduleFirstTouchTask({
+    supabase,
+    actorUserId: user!.id,
+    leadId,
+    ownerUserId,
   })
 
   refreshLeadPaths(leadId)

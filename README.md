@@ -46,3 +46,9 @@ Inbound webhook JSON:
 ```
 
 If `lead_id` is not provided, the API tries to match the lead by sender email or phone.
+
+Lead communication automation:
+
+- Taking a lead creates a first-contact task due in 2 hours.
+- Sending a message creates a follow-up task due in 24 hours.
+- Receiving an inbound reply creates a high-priority reply task due in 1 hour.

@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { NextRequest, NextResponse } from 'next/server'
 import { getMessageInboundWebhookSecret } from '@/lib/env'
+import { scheduleInboundReplyTask } from '@/lib/lead-automation'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 export const runtime = 'nodejs'
@@ -122,6 +123,11 @@ export async function POST(request: NextRequest) {
         provider: optionalValue(input.provider) ?? 'webhook',
         message_inbox_id: data.id,
       },
+    })
+    await scheduleInboundReplyTask({
+      supabase: admin,
+      leadId: data.lead_id,
+      channel: input.channel,
     })
   }
 
