@@ -123,6 +123,48 @@ export async function updateLeadStatus(formData: FormData) {
   redirect(`${basePath}?open=${encodeURIComponent(leadId)}`)
 }
 
+export async function updateLeadPersonalInfoAction(formData: FormData) {
+  const { supabase, user, profile } = await requireAbility('/dashboard/leads', 'lead.update')
+  const leadId = value(formData, 'lead_id')
+  if (!leadId) return
+
+  const canManageAnyLead = ['owner', 'admin', 'sales_head', 'sales_manager'].includes(profile?.role ?? '')
+  const { data: current } = await supabase
+    .from('leads')
+    .select('owner_user_id')
+    .eq('id', leadId)
+    .maybeSingle<{ owner_user_id: string | null }>()
+
+  if (current?.owner_user_id && current.owner_user_id !== user!.id && !canManageAnyLead) {
+    redirect(`/dashboard/my-leads?error=${encodeURIComponent('Редактировать можно только свой лид')}`)
+  }
+
+  await supabase
+    .from('leads')
+    .update({
+      contact_name_raw: value(formData, 'contact_name_raw') || null,
+      phone_raw: value(formData, 'phone_raw') || null,
+      email_raw: value(formData, 'email_raw') || null,
+      desired_country: value(formData, 'desired_country') || null,
+      source_detail: value(formData, 'source_detail') || null,
+      message: value(formData, 'message') || null,
+    })
+    .eq('id', leadId)
+
+  await supabase.from('activity_log').insert({
+    actor_user_id: user!.id,
+    entity_type: 'lead',
+    entity_id: leadId,
+    event_type: 'lead_personal_info_updated',
+    title: 'Личная информация обновлена',
+    body: 'Контактные данные, интерес или заметки клиента обновлены.',
+    metadata: { source: 'lead_ai_drawer' },
+  })
+
+  refreshLeadPaths(leadId)
+  redirect(`/dashboard/my-leads?open=${encodeURIComponent(leadId)}#lead-personal-info`)
+}
+
 export async function convertLeadToDeal(formData: FormData) {
   const { supabase } = await requireAbility('/dashboard/leads', 'lead.convert')
   const leadId = value(formData, 'lead_id')
