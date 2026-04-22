@@ -74,6 +74,40 @@ export function getMessageDispatchBatchSize() {
   return Number.isFinite(raw) && raw > 0 ? Math.min(raw, 100) : 20
 }
 
+export type EmailProvider = 'resend' | 'sendgrid'
+
+export function getEmailProvider(): EmailProvider | null {
+  const provider = process.env.EMAIL_PROVIDER?.toLowerCase()
+  if (provider === 'resend' || provider === 'sendgrid') return provider
+  if (process.env.RESEND_API_KEY) return 'resend'
+  if (process.env.SENDGRID_API_KEY) return 'sendgrid'
+  return null
+}
+
+export function getEmailFromAddress(provider: EmailProvider) {
+  if (provider === 'resend') {
+    return process.env.RESEND_FROM_EMAIL ?? process.env.EMAIL_FROM ?? null
+  }
+
+  return process.env.SENDGRID_FROM_EMAIL ?? process.env.EMAIL_FROM ?? null
+}
+
+export function getEmailFromName(provider: EmailProvider) {
+  if (provider === 'resend') {
+    return process.env.RESEND_FROM_NAME ?? process.env.EMAIL_FROM_NAME ?? 'International Trips Platform'
+  }
+
+  return process.env.SENDGRID_FROM_NAME ?? process.env.EMAIL_FROM_NAME ?? 'International Trips Platform'
+}
+
+export function getResendApiKey() {
+  return process.env.RESEND_API_KEY ?? null
+}
+
+export function getSendgridApiKey() {
+  return process.env.SENDGRID_API_KEY ?? null
+}
+
 export function getCronSecret() {
   return process.env.CRON_SECRET ?? null
 }

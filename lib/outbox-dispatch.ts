@@ -1,8 +1,13 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
+  getEmailFromAddress,
+  getEmailFromName,
+  getEmailProvider,
   getMessageDispatchBatchSize,
   getMessageDispatchWebhookSecret,
   getMessageDispatchWebhookUrl,
+  getResendApiKey,
+  getSendgridApiKey,
   isMessageDispatchDryRun,
 } from '@/lib/env'
 
@@ -45,6 +50,20 @@ function getRecipientSummary(message: OutboxRow) {
     email: message.recipient_email,
     phone: message.recipient_phone,
   }
+}
+
+function getMessageSubject(message: OutboxRow) {
+  return message.subject?.trim() || 'Сообщение от International Trips Platform'
+}
+
+function cleanSenderName(value: string | null) {
+  const cleaned = value?.replace(/[<>"\r\n]/g, '').trim()
+  return cleaned || null
+}
+
+function formatEmailSender(email: string, name: string | null) {
+  const cleanName = cleanSenderName(name)
+  return cleanName ? `${cleanName} <${email}>` : email
 }
 
 function ensureMessageHasRequiredRecipient(message: OutboxRow) {
@@ -170,12 +189,119 @@ async function deliverViaWebhook(message: OutboxRow, webhookUrl: string, secret?
   }
 }
 
+async function deliverEmailViaResend(message: OutboxRow): Promise<DispatchOutcome> {
+  ensureMessageHasRequiredRecipient(message)
+
+  const apiKey = getResendApiKey()
+  const fromEmail = getEmailFromAddress('resend')
+  if (!apiKey || !fromEmail) {
+    throw new Error('resend_not_configured')
+  }
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: formatEmailSender(fromEmail, getEmailFromName('resend')),
+      to: [message.recipient_email],
+      subject: getMessageSubject(message),
+      text: message.body,
+    }),
+  })
+
+  const text = await response.text()
+  if (!response.ok) {
+    throw new Error(`resend_http_${response.status}:${truncateError(text, 250)}`)
+  }
+
+  let payload: Record<string, unknown> | null = null
+  try {
+    payload = text ? (JSON.parse(text) as Record<string, unknown>) : null
+  } catch {
+    payload = null
+  }
+
+  return {
+    provider: 'resend',
+    providerMessageId: typeof payload?.id === 'string' ? payload.id : null,
+    responseSummary: text ? truncateError(text, 250) : `resend_http_${response.status}`,
+  }
+}
+
+async function deliverEmailViaSendgrid(message: OutboxRow): Promise<DispatchOutcome> {
+  ensureMessageHasRequiredRecipient(message)
+
+  const apiKey = getSendgridApiKey()
+  const fromEmail = getEmailFromAddress('sendgrid')
+  if (!apiKey || !fromEmail) {
+    throw new Error('sendgrid_not_configured')
+  }
+
+  const fromName = cleanSenderName(getEmailFromName('sendgrid'))
+  const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      personalizations: [
+        {
+          to: [
+            {
+              email: message.recipient_email,
+              ...(message.recipient_name ? { name: message.recipient_name } : {}),
+            },
+          ],
+          subject: getMessageSubject(message),
+        },
+      ],
+      from: {
+        email: fromEmail,
+        ...(fromName ? { name: fromName } : {}),
+      },
+      content: [
+        {
+          type: 'text/plain',
+          value: message.body,
+        },
+      ],
+    }),
+  })
+
+  const text = await response.text()
+  if (!response.ok) {
+    throw new Error(`sendgrid_http_${response.status}:${truncateError(text, 250)}`)
+  }
+
+  return {
+    provider: 'sendgrid',
+    providerMessageId: response.headers.get('x-message-id'),
+    responseSummary: text ? truncateError(text, 250) : `sendgrid_http_${response.status}`,
+  }
+}
+
+async function deliverEmail(message: OutboxRow) {
+  const provider = getEmailProvider()
+  if (provider === 'resend') return deliverEmailViaResend(message)
+  if (provider === 'sendgrid') return deliverEmailViaSendgrid(message)
+  return null
+}
+
 async function deliverMessage(message: OutboxRow): Promise<DispatchOutcome> {
   if (message.channel === 'internal') {
     return {
       provider: 'internal',
       responseSummary: 'internal_message_marked_sent',
     }
+  }
+
+  if (message.channel === 'email') {
+    const emailOutcome = await deliverEmail(message)
+    if (emailOutcome) return emailOutcome
   }
 
   const webhookUrl = getMessageDispatchWebhookUrl()
