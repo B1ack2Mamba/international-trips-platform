@@ -6,7 +6,7 @@ import { getLeadAssignableProfiles, type LeadAssignableProfile } from '@/lib/lea
 import { requireDashboardAccess } from '@/lib/auth'
 import { formatDateTime } from '@/lib/format'
 import { label } from '@/lib/labels'
-import { getActivityLog, getLeadById, getMyLeads, getSalesScriptsBySegment, getTasksByLead, type LeadRow, type TaskRow } from '@/lib/queries'
+import { getActivityLog, getContractsByDeal, getDealById, getDealFlowSummaries, getLeadById, getMyLeads, getPaymentsByDeal, getSalesScriptsBySegment, getTasksByLead, type LeadRow, type TaskRow } from '@/lib/queries'
 
 export const dynamic = 'force-dynamic'
 
@@ -196,6 +196,11 @@ export default async function MyLeadsPage({
   const aiScript = activities.find((activity) => activity.event_type === 'ai_sales_script_generated') ?? null
   const historyActivities = activities.filter((activity) => activity.event_type !== 'ai_sales_script_generated')
   const scripts = openLead?.desired_program?.segment ? await getSalesScriptsBySegment(openLead.desired_program.segment, 6) : []
+  const deal = openLead?.converted_deal_id ? await getDealById(openLead.converted_deal_id) : null
+  const dealFlowById = deal ? await getDealFlowSummaries([deal.id]) : {}
+  const contracts = deal ? await getContractsByDeal(deal.id, 5) : []
+  const payments = deal ? await getPaymentsByDeal(deal.id, 5) : []
+  const dealFlow = deal ? dealFlowById[deal.id] ?? null : null
 
   return (
     <div className="content-stack compact-page fullscreen-stretch leads-fullscreen-page">
@@ -246,6 +251,11 @@ export default async function MyLeadsPage({
             lead={openLead}
             scripts={scripts}
             aiScript={aiScript}
+            deal={deal}
+            dealFlow={dealFlow}
+            contracts={contracts}
+            payments={payments}
+            tasks={leadTasks}
             assignableProfiles={assignableProfiles}
             scriptsMode={scriptsMode}
             returnPath="/dashboard/my-leads"
