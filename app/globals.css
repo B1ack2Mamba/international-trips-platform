@@ -3197,12 +3197,36 @@ body.builder-mode .constructor-board-stage {
 }
 
 .compact-form-grid--tasks-filters {
-  grid-template-columns: minmax(180px, 0.5fr) minmax(180px, 0.5fr) auto;
+  grid-template-columns: minmax(160px, 0.45fr) minmax(180px, 0.5fr) minmax(180px, 0.5fr) auto;
   align-items: end;
   padding: 12px;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.035);
   border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.compact-form-grid--task-create {
+  grid-template-columns: minmax(220px, 1.2fr) minmax(160px, 0.6fr) minmax(190px, 0.7fr);
+}
+
+.task-description-field {
+  grid-column: 1 / -1;
+}
+
+.section-mini-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.section-mini-head h2,
+.section-mini-head h3 {
+  margin: 0;
+}
+
+.task-actions {
+  flex-wrap: wrap;
 }
 
 .registry-actions--lead-row {
@@ -3232,6 +3256,10 @@ body.builder-mode .constructor-board-stage {
   }
 
   .compact-form-grid--tasks-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .compact-form-grid--task-create {
     grid-template-columns: 1fr;
   }
 

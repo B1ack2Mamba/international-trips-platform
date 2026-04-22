@@ -19,7 +19,7 @@ export async function updateTaskStatusAction(formData: FormData) {
   const { supabase, user } = await requireDashboardAccess('/dashboard/tasks')
   const taskId = value(formData, 'task_id')
   const status = value(formData, 'status') || 'done'
-  if (!taskId) return
+  if (!taskId || !['todo', 'doing', 'done', 'cancelled'].includes(status)) return
 
   const { data: task } = await supabase
     .from('tasks')
@@ -53,7 +53,40 @@ export async function updateTaskStatusAction(formData: FormData) {
     })
   }
 
+  if (task?.application_id) {
+    await supabase.from('activity_log').insert({
+      actor_user_id: user!.id,
+      entity_type: 'application',
+      entity_id: task.application_id,
+      event_type: 'task_status_changed',
+      title: status === 'done' ? 'Задача закрыта' : 'Статус задачи обновлён',
+      body: task.title,
+      metadata: { task_id: taskId, status },
+    })
+  }
+
   refreshTaskPaths()
   redirect('/dashboard/tasks')
 }
 
+export async function createGeneralTaskAction(formData: FormData) {
+  const { supabase, user } = await requireDashboardAccess('/dashboard/tasks')
+  const title = value(formData, 'title')
+  if (!title) return
+
+  const dueDate = value(formData, 'due_date')
+  const priority = value(formData, 'priority') || 'medium'
+
+  await supabase.from('tasks').insert({
+    owner_user_id: user!.id,
+    title,
+    description: value(formData, 'description') || null,
+    priority: ['low', 'medium', 'high', 'critical'].includes(priority) ? priority : 'medium',
+    due_date: dueDate ? new Date(dueDate).toISOString() : null,
+    status: 'todo',
+    metadata: { source: 'tasks_page' },
+  })
+
+  refreshTaskPaths()
+  redirect('/dashboard/tasks')
+}
