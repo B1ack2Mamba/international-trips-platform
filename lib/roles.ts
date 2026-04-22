@@ -248,8 +248,8 @@ const DASHBOARD_MODULES: readonly DashboardModuleDefinition[] = [
     key: 'my_leads',
     routePath: '/dashboard/my-leads',
     href: '/dashboard/my-leads',
-    label: 'Мои лиды',
-    description: 'Персональная очередь лидов, взятых в работу текущим менеджером.',
+    label: 'Мои клиенты и дела',
+    description: 'Персональная очередь клиентов и ежедневные задачи менеджера.',
     groupTitle: 'Продажи',
     roles: salesRoles,
   },
@@ -411,7 +411,7 @@ export function isRoleAllowedForModule(role: string | null | undefined, key: Das
 
 const NAV_GROUP_BLUEPRINT = [
   { title: 'Командный мостик', keys: ['dashboard', 'reports', 'spaces'] },
-  { title: 'Продажи', keys: ['leads', 'my_leads', 'tasks', 'deals', 'accounts', 'contracts', 'scripts'] },
+  { title: 'Продажи', keys: ['leads', 'my_leads', 'deals', 'accounts', 'contracts', 'scripts'] },
   { title: 'Партнёры', keys: ['partners'] },
   { title: 'Продукт и выезды', keys: ['programs', 'departures', 'ops'] },
   { title: 'Финансы', keys: ['finance', 'controlling'] },

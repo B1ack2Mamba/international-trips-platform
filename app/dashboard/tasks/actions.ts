@@ -15,6 +15,12 @@ function refreshTaskPaths() {
   revalidatePath('/dashboard/deals')
 }
 
+function taskReturnPath(formData: FormData) {
+  const returnPath = value(formData, 'return_path')
+  if (returnPath.startsWith('/dashboard/my-leads')) return returnPath
+  return '/dashboard/tasks'
+}
+
 export async function updateTaskStatusAction(formData: FormData) {
   const { supabase, user } = await requireDashboardAccess('/dashboard/tasks')
   const taskId = value(formData, 'task_id')
@@ -66,7 +72,7 @@ export async function updateTaskStatusAction(formData: FormData) {
   }
 
   refreshTaskPaths()
-  redirect('/dashboard/tasks')
+  redirect(taskReturnPath(formData))
 }
 
 export async function createGeneralTaskAction(formData: FormData) {
@@ -88,5 +94,5 @@ export async function createGeneralTaskAction(formData: FormData) {
   })
 
   refreshTaskPaths()
-  redirect('/dashboard/tasks')
+  redirect(taskReturnPath(formData))
 }

@@ -3149,6 +3149,10 @@ body.builder-mode .constructor-board-stage {
   background: rgba(255, 255, 255, 0.06);
 }
 
+.lead-ai-script-card {
+  white-space: pre-wrap;
+}
+
 .deal-kanban {
   display: grid;
   grid-template-columns: repeat(5, minmax(220px, 1fr));

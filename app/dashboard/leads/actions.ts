@@ -204,6 +204,7 @@ function fallbackLeadScript(input: {
   departure: string
   message: string
   channel: string
+  context?: string
 }) {
   return [
     `1. Начать с контекста: «${input.name}, вижу ваш интерес: ${input.interest}. Правильно понимаю, что сейчас важно подобрать безопасный и понятный вариант?»`,
@@ -211,19 +212,45 @@ function fallbackLeadScript(input: {
     `3. Подтвердить доверие: проговорить программу, сопровождение, проживание, документы и следующие шаги без давления.`,
     `4. Закрыть на действие: предложить 2 варианта и договориться о следующем касании сегодня/завтра.`,
     `Данные клиента: телефон ${input.phone || 'не указан'}, email ${input.email || 'не указан'}, выезд ${input.departure || 'не выбран'}, канал ${input.channel}. Комментарий: ${input.message || 'нет'}.`,
+    input.context ? `Контекст CRM, который нужно учитывать:\n${input.context}` : '',
   ].join('\n\n')
+}
+
+function compactContextLine(value: string | null | undefined, fallback = '—') {
+  const normalized = String(value || '').replace(/\s+/g, ' ').trim()
+  if (!normalized) return fallback
+  return normalized.length > 260 ? `${normalized.slice(0, 257)}...` : normalized
 }
 
 export async function generateLeadScriptAction(formData: FormData) {
   const { supabase, user } = await requireAbility('/dashboard/leads', 'lead.update')
   const leadId = value(formData, 'lead_id')
-  const { data: lead, error } = await supabase
-    .from('leads')
-    .select(`id, contact_name_raw, phone_raw, email_raw, desired_country, source_channel, source_detail, message, metadata,
-      desired_program:programs(title, segment, short_description),
-      desired_departure:departures(departure_name, start_date)`)
-    .eq('id', leadId)
-    .maybeSingle()
+  const [leadResult, tasksResult, activitiesResult] = await Promise.all([
+    supabase
+      .from('leads')
+      .select(`id, contact_name_raw, phone_raw, email_raw, desired_country, source_channel, source_detail, message, metadata,
+        desired_program:programs(title, segment, short_description),
+        desired_departure:departures(departure_name, start_date)`)
+      .eq('id', leadId)
+      .maybeSingle(),
+    supabase
+      .from('tasks')
+      .select('title, description, status, priority, due_date, created_at')
+      .eq('lead_id', leadId)
+      .order('created_at', { ascending: false })
+      .limit(20),
+    supabase
+      .from('activity_log')
+      .select('event_type, title, body, created_at')
+      .eq('entity_type', 'lead')
+      .eq('entity_id', leadId)
+      .neq('event_type', 'ai_sales_script_generated')
+      .order('created_at', { ascending: false })
+      .limit(30),
+  ])
+
+  const lead = leadResult.data
+  const error = leadResult.error
 
   if (error || !lead) {
     redirect(`/dashboard/my-leads?error=${encodeURIComponent(error?.message ?? 'Лид не найден')}`)
@@ -240,8 +267,19 @@ export async function generateLeadScriptAction(formData: FormData) {
     message: String(lead.message || ''),
     channel: String(lead.source_channel || ''),
   }
+  const taskContext = (tasksResult.data ?? [])
+    .map((task) => `Задача: ${compactContextLine(task.title)}; статус ${task.status}; приоритет ${task.priority}; срок ${task.due_date || 'не указан'}; описание ${compactContextLine(task.description)}`)
+    .join('\n')
+  const activityContext = (activitiesResult.data ?? [])
+    .map((activity) => `${activity.title} (${activity.event_type}): ${compactContextLine(activity.body)}`)
+    .join('\n')
+  const crmContext = [
+    lead.message ? `Первичный комментарий клиента: ${compactContextLine(lead.message)}` : '',
+    taskContext ? `Текущие и прошлые задачи:\n${taskContext}` : '',
+    activityContext ? `Пометки, комментарии и действия менеджеров:\n${activityContext}` : '',
+  ].filter(Boolean).join('\n\n')
 
-  let script = fallbackLeadScript(input)
+  let script = fallbackLeadScript({ ...input, context: crmContext })
   const apiKey = process.env.OPENAI_API_KEY
   if (apiKey) {
     try {
@@ -260,7 +298,7 @@ export async function generateLeadScriptAction(formData: FormData) {
             },
             {
               role: 'user',
-              content: `Составь персональный скрипт для клиента. Имя: ${input.name}. Телефон: ${input.phone}. Email: ${input.email}. Интерес: ${input.interest}. Выезд: ${input.departure}. Канал: ${input.channel}. Комментарий клиента: ${input.message}. Верни структуру: открытие, 5 вопросов, аргументы, следующий шаг.`,
+              content: `Составь персональный скрипт для клиента. Имя: ${input.name}. Телефон: ${input.phone}. Email: ${input.email}. Интерес: ${input.interest}. Выезд: ${input.departure}. Канал: ${input.channel}. Комментарий клиента: ${input.message}. Обязательно учитывай весь CRM-контекст ниже: задачи, пометки, комментарии, историю действий. Не повторяй то, что уже сделано; предложи следующий лучший шаг.\n\nCRM-контекст:\n${crmContext || 'Дополнительного контекста пока нет.'}\n\nВерни структуру: короткая цель звонка, открытие, 5 персональных вопросов, аргументы под ситуацию клиента, обработка риска/возражения, следующий шаг.`,
             },
           ],
           max_output_tokens: 900,
@@ -269,7 +307,7 @@ export async function generateLeadScriptAction(formData: FormData) {
       const json = await response.json() as { output_text?: string; error?: { message?: string } }
       if (response.ok && json.output_text) script = json.output_text
     } catch {
-      script = fallbackLeadScript(input)
+      script = fallbackLeadScript({ ...input, context: crmContext })
     }
   }
 
@@ -283,11 +321,15 @@ export async function generateLeadScriptAction(formData: FormData) {
     metadata: {
       generated_with: apiKey ? 'openai' : 'fallback',
       interest: input.interest,
+      context_sources: {
+        tasks: tasksResult.data?.length ?? 0,
+        activities: activitiesResult.data?.length ?? 0,
+      },
     },
   })
 
   refreshLeadPaths(leadId)
-  redirect(`/dashboard/my-leads?open=${encodeURIComponent(leadId)}&history=1`)
+  redirect(`/dashboard/my-leads?open=${encodeURIComponent(leadId)}#lead-ai-script`)
 }
 
 export async function createLeadTaskAction(formData: FormData) {

@@ -4,10 +4,10 @@ import { formatDateTime } from '@/lib/format'
 import { getTaskReminderSummary, type TaskRow } from '@/lib/queries'
 
 function taskHref(task: TaskRow) {
-  if (task.lead_id) return `/dashboard/my-leads?lead=${task.lead_id}`
+  if (task.lead_id) return `/dashboard/my-leads?open=${task.lead_id}`
   if (task.deal_id) return `/dashboard/deals?deal=${task.deal_id}`
   if (task.application_id) return `/dashboard/applications?application=${task.application_id}`
-  return '/dashboard/tasks'
+  return '/dashboard/my-leads#my-tasks'
 }
 
 function taskContext(task: TaskRow) {
@@ -29,15 +29,15 @@ export async function WorkbarReminders({ profileId }: { profileId: string }) {
 
   return (
     <div className="workbar-reminders" aria-label="Напоминания CRM">
-      <Link className={`workbar-reminder-chip ${tone}`} href="/dashboard/tasks">
+      <Link className={`workbar-reminder-chip ${tone}`} href="/dashboard/my-leads#my-tasks">
         <span>Мои дела</span>
         <strong>{summary.total_open}</strong>
       </Link>
-      <Link className={`workbar-reminder-chip ${tone}`} href="/dashboard/tasks">
+      <Link className={`workbar-reminder-chip ${tone}`} href="/dashboard/my-leads#my-tasks">
         <span>Просрочено</span>
         <strong>{summary.overdue}</strong>
       </Link>
-      <Link className="workbar-reminder-chip is-today" href="/dashboard/tasks">
+      <Link className="workbar-reminder-chip is-today" href="/dashboard/my-leads#my-tasks">
         <span>Сегодня</span>
         <strong>{summary.due_today}</strong>
       </Link>
