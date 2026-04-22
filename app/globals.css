@@ -3381,11 +3381,16 @@ body.builder-mode .constructor-board-stage {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.compact-form-grid--lead-message {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .lead-personal-wide {
   grid-column: 1 / -1;
 }
 
-.lead-personal-info-form textarea {
+.lead-personal-info-form textarea,
+.lead-communications-form textarea {
   min-height: 110px;
 }
 

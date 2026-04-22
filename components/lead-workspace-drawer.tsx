@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { generateLeadScriptAction, updateLeadPersonalInfoAction } from '@/app/dashboard/leads/actions'
+import { generateLeadScriptAction, queueLeadManualMessageAction, updateLeadPersonalInfoAction } from '@/app/dashboard/leads/actions'
 import { formatCurrency, formatDateTime } from '@/lib/format'
 import { label } from '@/lib/labels'
 import type { LeadAssignableProfile } from '@/lib/lead-access'
@@ -120,6 +120,33 @@ export function LeadWorkspaceDrawer({
           <label className="lead-personal-wide">Источник / контекст<input name="source_detail" defaultValue={lead.source_detail || ''} placeholder="Откуда пришёл клиент и что уже известно" /></label>
           <label className="lead-personal-wide">Личные заметки<textarea name="message" defaultValue={lead.message || ''} placeholder="Возраст, цели, бюджет, страхи, предпочтения, кто принимает решение" /></label>
           <div className="form-actions"><button className="button-secondary">Сохранить информацию</button></div>
+        </form>
+      </div>
+
+      <div id="lead-communications" className="lead-inline-form lead-communications-form">
+        <div>
+          <h3 style={{ margin: 0 }}>Сообщение клиенту</h3>
+          <div className="micro">Поставит письмо или сообщение в единую очередь коммуникаций.</div>
+        </div>
+        <form action={queueLeadManualMessageAction} className="compact-form-grid compact-form-grid--lead-message">
+          <input type="hidden" name="lead_id" value={lead.id} />
+          <label>Получатель<input name="recipient_name" defaultValue={lead.contact_name_raw || ''} placeholder="Имя клиента" /></label>
+          <label>
+            Канал
+            <select name="channel" defaultValue="email">
+              <option value="email">Email</option>
+              <option value="whatsapp">WhatsApp</option>
+              <option value="telegram">Telegram</option>
+              <option value="sms">SMS</option>
+              <option value="internal">Внутреннее</option>
+            </select>
+          </label>
+          <label>Email<input name="recipient_email" type="email" defaultValue={lead.email_raw || ''} placeholder="client@example.com" /></label>
+          <label>Телефон<input name="recipient_phone" defaultValue={lead.phone_raw || ''} placeholder="+7..." /></label>
+          <label>Отправить после<input name="send_after" type="datetime-local" /></label>
+          <label className="lead-personal-wide">Тема<input name="subject" placeholder="Следующий шаг по поездке" /></label>
+          <label className="lead-personal-wide">Текст<textarea name="body" placeholder="Текст сообщения клиенту" required /></label>
+          <div className="form-actions"><button className="button-secondary">Поставить в очередь</button></div>
         </form>
       </div>
 
