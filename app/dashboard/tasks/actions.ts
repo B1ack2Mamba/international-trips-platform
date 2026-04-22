@@ -77,6 +77,40 @@ export async function updateTaskStatusAction(formData: FormData) {
   redirect(taskReturnPath(formData))
 }
 
+export async function completeTaskFromWorkbarAction(formData: FormData) {
+  const { supabase, user } = await requireDashboardAccess('/dashboard/tasks')
+  const taskId = value(formData, 'task_id')
+  if (!taskId) return
+
+  const { data: task } = await supabase
+    .from('tasks')
+    .select('id, title, lead_id, deal_id, application_id')
+    .eq('id', taskId)
+    .maybeSingle<{ id: string; title: string; lead_id: string | null; deal_id: string | null; application_id: string | null }>()
+
+  await supabase.from('tasks').update({ status: 'done' }).eq('id', taskId)
+
+  const activity = {
+    actor_user_id: user!.id,
+    event_type: 'task_status_changed',
+    title: 'Задача закрыта',
+    body: task?.title || 'Задача выполнена.',
+    metadata: { task_id: taskId, status: 'done', source: 'workbar_notifications' },
+  }
+
+  if (task?.lead_id) {
+    await supabase.from('activity_log').insert({ ...activity, entity_type: 'lead', entity_id: task.lead_id })
+  }
+  if (task?.deal_id) {
+    await supabase.from('activity_log').insert({ ...activity, entity_type: 'deal', entity_id: task.deal_id })
+  }
+  if (task?.application_id) {
+    await supabase.from('activity_log').insert({ ...activity, entity_type: 'application', entity_id: task.application_id })
+  }
+
+  refreshTaskPaths()
+}
+
 export async function createGeneralTaskAction(formData: FormData) {
   const { supabase, user } = await requireDashboardAccess('/dashboard/tasks')
   const title = value(formData, 'title')

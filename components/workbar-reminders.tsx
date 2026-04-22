@@ -1,6 +1,6 @@
 import Link from 'next/link'
 
-import { updateTaskStatusAction } from '@/app/dashboard/tasks/actions'
+import { completeTaskFromWorkbarAction } from '@/app/dashboard/tasks/actions'
 import { formatDateTime } from '@/lib/format'
 import { getTaskReminderSummary, type TaskRow } from '@/lib/queries'
 
@@ -75,10 +75,8 @@ export async function WorkbarReminders({ profileId }: { profileId: string }) {
                   </Link>
                   <div className="workbar-notification-actions">
                     <span className={`workbar-task-timer ${dueTime(task) < Date.now() ? 'is-overdue' : ''}`}>{dueCountdown(task)}</span>
-                    <form action={updateTaskStatusAction}>
+                    <form action={completeTaskFromWorkbarAction}>
                       <input type="hidden" name="task_id" value={task.id} />
-                      <input type="hidden" name="status" value="done" />
-                      <input type="hidden" name="return_path" value="/dashboard" />
                       <button className="button-secondary">Готово</button>
                     </form>
                   </div>
