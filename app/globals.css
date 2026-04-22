@@ -366,6 +366,7 @@ form {
   grid-template-columns: 280px minmax(0, 1fr);
   gap: 18px;
   padding: 14px 0 28px;
+  transition: grid-template-columns 0.18s ease;
 }
 
 .dashboard-shell--studio {
@@ -374,6 +375,11 @@ form {
 
 .dashboard-shell.is-collapsed {
   grid-template-columns: 46px minmax(0, 1fr);
+}
+
+.dashboard-shell.is-collapsed:has(.dashboard-sidebar-wrap:hover),
+.dashboard-shell.is-collapsed:has(.dashboard-sidebar-wrap:focus-within) {
+  grid-template-columns: 280px minmax(0, 1fr);
 }
 
 .dashboard-sidebar-wrap {
@@ -389,15 +395,10 @@ form {
 }
 
 .dashboard-shell.is-collapsed .sidebar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 280px;
   opacity: 0;
   pointer-events: none;
   visibility: hidden;
-  transform: translateX(-14px);
-  transition: opacity 0.16s ease, transform 0.16s ease, visibility 0.16s ease;
+  transition: opacity 0.16s ease, visibility 0.16s ease;
 }
 
 .dashboard-shell.is-collapsed .dashboard-sidebar-wrap:hover .sidebar,
@@ -405,7 +406,6 @@ form {
   opacity: 1;
   pointer-events: auto;
   visibility: visible;
-  transform: translateX(0);
 }
 
 .dashboard-sidebar-toggle {
