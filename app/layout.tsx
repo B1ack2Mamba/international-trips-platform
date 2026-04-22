@@ -2,6 +2,9 @@ import './globals.css'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { getSiteUrl } from '@/lib/env'
+import { getAuthContext } from '@/lib/auth'
+import { isStaffRole } from '@/lib/roles'
+import { WorkbarReminders } from '@/components/workbar-reminders'
 
 export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
@@ -9,7 +12,10 @@ export const metadata: Metadata = {
   description: 'Платформа для международных языковых поездок, CRM и операционного управления.',
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const { profile } = await getAuthContext()
+  const showWorkbarReminders = Boolean(profile?.id && profile.is_active && isStaffRole(profile.role))
+
   return (
     <html lang="ru">
       <body>
@@ -20,6 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <span className="brand-subtitle">Мозг · двигатель · колёса одной системы</span>
             </Link>
             <nav className="nav-inline">
+              {showWorkbarReminders ? <WorkbarReminders profileId={profile!.id} /> : null}
               <Link className="nav-chip" href="/programs">
                 Программы
               </Link>

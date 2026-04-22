@@ -43,9 +43,11 @@ export function DashboardShellClient({
         {sidebar}
       </div>
       <section className="dashboard-main">
-        <div className="dashboard-workbar">
-          {workbar ? <div className="dashboard-workbar-extra">{workbar}</div> : null}
-        </div>
+        {workbar ? (
+          <div className="dashboard-workbar">
+            <div className="dashboard-workbar-extra">{workbar}</div>
+          </div>
+        ) : null}
         <div className="content-stack">{children}</div>
       </section>
     </div>

@@ -86,7 +86,17 @@ main {
 .nav-inline {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
   gap: 10px;
+}
+
+.topbar .workbar-reminders {
+  order: -1;
+}
+
+.topbar .workbar-notifications-panel {
+  top: calc(100% + 14px);
 }
 
 .nav-chip,
