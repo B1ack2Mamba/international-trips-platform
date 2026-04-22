@@ -3394,6 +3394,68 @@ body.builder-mode .constructor-board-stage {
   min-height: 110px;
 }
 
+.lead-communication-timeline {
+  display: grid;
+  gap: 10px;
+  max-height: 430px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.lead-communication-item {
+  display: grid;
+  gap: 7px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.045);
+  padding: 10px 12px;
+}
+
+.lead-communication-item--inbound {
+  border-color: rgba(52, 211, 153, 0.22);
+  background: rgba(52, 211, 153, 0.07);
+}
+
+.lead-communication-item--outbound {
+  border-color: rgba(125, 211, 252, 0.18);
+}
+
+.lead-communication-item__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.lead-communication-item__contact {
+  color: var(--muted);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.lead-communication-item__body {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+
+.lead-communication-compose {
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.035);
+  padding: 10px 12px;
+}
+
+.lead-communication-compose summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.lead-communication-compose form {
+  margin-top: 12px;
+}
+
 .lead-client-summary-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

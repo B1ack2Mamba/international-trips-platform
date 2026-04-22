@@ -65,6 +65,10 @@ export function getMessageDispatchWebhookSecret() {
   return process.env.MESSAGE_DISPATCH_WEBHOOK_TOKEN ?? null
 }
 
+export function getMessageInboundWebhookSecret() {
+  return process.env.MESSAGE_INBOUND_WEBHOOK_TOKEN ?? null
+}
+
 export function isMessageDispatchDryRun() {
   return process.env.MESSAGE_DISPATCH_DRY_RUN === 'true'
 }

@@ -6,7 +6,7 @@ import { getLeadAssignableProfiles, type LeadAssignableProfile } from '@/lib/lea
 import { requireDashboardAccess } from '@/lib/auth'
 import { formatDateTime } from '@/lib/format'
 import { label } from '@/lib/labels'
-import { getActivityLog, getContractsByDeal, getDealById, getDealFlowSummaries, getLeadById, getMyLeads, getPaymentsByDeal, getSalesScriptsBySegment, getTasksByLead, type LeadRow, type TaskRow } from '@/lib/queries'
+import { getActivityLog, getContractsByDeal, getDealById, getDealFlowSummaries, getLeadById, getLeadCommunications, getMyLeads, getPaymentsByDeal, getSalesScriptsBySegment, getTasksByLead, type LeadRow, type TaskRow } from '@/lib/queries'
 
 export const dynamic = 'force-dynamic'
 
@@ -186,12 +186,13 @@ export default async function MyLeadsPage({
   const transferMode = params.transfer === '1'
   const error = typeof params.error === 'string' ? params.error : ''
 
-  const [leads, openLead, assignableProfiles, activities, leadTasks] = await Promise.all([
+  const [leads, openLead, assignableProfiles, activities, leadTasks, communications] = await Promise.all([
     getMyLeads(user!.id, 120),
     openLeadId ? getLeadById(openLeadId) : Promise.resolve(null),
     getLeadAssignableProfiles(),
     openLeadId ? getActivityLog('lead', openLeadId, 50) : Promise.resolve([]),
     openLeadId ? getTasksByLead(openLeadId, 10) : Promise.resolve([]),
+    openLeadId ? getLeadCommunications(openLeadId, 40) : Promise.resolve([]),
   ])
   const aiScript = activities.find((activity) => activity.event_type === 'ai_sales_script_generated') ?? null
   const historyActivities = activities.filter((activity) => activity.event_type !== 'ai_sales_script_generated')
@@ -256,6 +257,7 @@ export default async function MyLeadsPage({
             contracts={contracts}
             payments={payments}
             tasks={leadTasks}
+            communications={communications}
             assignableProfiles={assignableProfiles}
             scriptsMode={scriptsMode}
             returnPath="/dashboard/my-leads"

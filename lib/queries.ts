@@ -403,6 +403,22 @@ export type ActivityRow = {
   actor: MiniProfile
 }
 
+export type LeadCommunicationRow = {
+  id: string
+  direction: 'inbound' | 'outbound'
+  channel: string
+  status: string | null
+  subject: string | null
+  body: string
+  contact_name: string | null
+  contact_email: string | null
+  contact_phone: string | null
+  provider: string | null
+  external_message_id: string | null
+  occurred_at: string
+  metadata: JsonMap
+}
+
 export type ApplicationDocumentRow = {
   id: string
   application_id: string
@@ -1170,6 +1186,86 @@ export async function getActivityLog(entityType: string, entityId: string, limit
   const supabase = await createClient()
   const { data } = await supabase.from('activity_log').select('id, entity_type, entity_id, event_type, title, body, metadata, created_at, actor:profiles(id, full_name, email)').eq('entity_type', entityType).eq('entity_id', entityId).order('created_at', { ascending: false }).limit(limit)
   return asRows<ActivityRow>(data)
+}
+
+export async function getLeadCommunications(leadId: string, limit = 30): Promise<LeadCommunicationRow[]> {
+  const supabase = await createClient()
+  const [inboxRes, outboxRes] = await Promise.all([
+    supabase
+      .from('message_inbox')
+      .select('id, channel, sender_name, sender_email, sender_phone, subject, body, provider, external_message_id, received_at, metadata')
+      .eq('lead_id', leadId)
+      .order('received_at', { ascending: false })
+      .limit(limit),
+    supabase
+      .from('message_outbox')
+      .select('id, channel, recipient_name, recipient_email, recipient_phone, subject, body, status, provider, sent_at, send_after, created_at, metadata')
+      .eq('lead_id', leadId)
+      .order('created_at', { ascending: false })
+      .limit(limit),
+  ])
+
+  const inbound = asRows<{
+    id: string
+    channel: string
+    sender_name: string | null
+    sender_email: string | null
+    sender_phone: string | null
+    subject: string | null
+    body: string
+    provider: string | null
+    external_message_id: string | null
+    received_at: string
+    metadata: JsonMap
+  }>(inboxRes.data).map((message) => ({
+    id: message.id,
+    direction: 'inbound' as const,
+    channel: message.channel,
+    status: null,
+    subject: message.subject,
+    body: message.body,
+    contact_name: message.sender_name,
+    contact_email: message.sender_email,
+    contact_phone: message.sender_phone,
+    provider: message.provider,
+    external_message_id: message.external_message_id,
+    occurred_at: message.received_at,
+    metadata: message.metadata,
+  }))
+
+  const outbound = asRows<{
+    id: string
+    channel: string
+    recipient_name: string | null
+    recipient_email: string | null
+    recipient_phone: string | null
+    subject: string | null
+    body: string
+    status: string | null
+    provider: string | null
+    sent_at: string | null
+    send_after: string
+    created_at: string
+    metadata: JsonMap
+  }>(outboxRes.data).map((message) => ({
+    id: message.id,
+    direction: 'outbound' as const,
+    channel: message.channel,
+    status: message.status,
+    subject: message.subject,
+    body: message.body,
+    contact_name: message.recipient_name,
+    contact_email: message.recipient_email,
+    contact_phone: message.recipient_phone,
+    provider: message.provider,
+    external_message_id: null,
+    occurred_at: message.sent_at ?? message.send_after ?? message.created_at,
+    metadata: message.metadata,
+  }))
+
+  return [...inbound, ...outbound]
+    .sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime())
+    .slice(0, limit)
 }
 
 export async function getApplicationDocuments(applicationId: string, limit = 50): Promise<ApplicationDocumentRow[]> {

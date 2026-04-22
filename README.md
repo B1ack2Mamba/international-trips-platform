@@ -26,3 +26,23 @@ SENDGRID_FROM_NAME="International Trips"
 ```
 
 `EMAIL_FROM` and `EMAIL_FROM_NAME` can be used as shared fallback values for either provider.
+
+Incoming replies can be written to `message_inbox` through:
+
+- The "Связь с клиентом" block in a lead card.
+- `POST /api/inbound-message` with `Authorization: Bearer $MESSAGE_INBOUND_WEBHOOK_TOKEN`.
+
+Inbound webhook JSON:
+
+```json
+{
+  "channel": "email",
+  "sender_email": "client@example.com",
+  "subject": "Re: договор",
+  "body": "Готовы подписать",
+  "provider": "resend",
+  "external_message_id": "provider-message-id"
+}
+```
+
+If `lead_id` is not provided, the API tries to match the lead by sender email or phone.

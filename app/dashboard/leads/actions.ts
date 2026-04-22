@@ -220,6 +220,61 @@ export async function queueLeadManualMessageAction(formData: FormData) {
   redirect(`/dashboard/my-leads?open=${encodeURIComponent(leadId)}#lead-communications`)
 }
 
+export async function recordLeadIncomingMessageAction(formData: FormData) {
+  const { supabase, user, profile } = await requireAbility('/dashboard/leads', 'lead.update')
+  const leadId = value(formData, 'lead_id')
+  const body = value(formData, 'body')
+  if (!leadId || !body) return
+
+  const canManageAnyLead = ['owner', 'admin', 'sales_head', 'sales_manager'].includes(profile?.role ?? '')
+  const { data: lead } = await supabase
+    .from('leads')
+    .select('owner_user_id, contact_name_raw, phone_raw, email_raw')
+    .eq('id', leadId)
+    .maybeSingle<{ owner_user_id: string | null; contact_name_raw: string | null; phone_raw: string | null; email_raw: string | null }>()
+
+  if (lead?.owner_user_id && lead.owner_user_id !== user!.id && !canManageAnyLead) {
+    redirect(`/dashboard/my-leads?error=${encodeURIComponent('Добавлять входящие сообщения можно только своему клиенту')}`)
+  }
+
+  const channel = value(formData, 'channel') || 'email'
+  const senderName = value(formData, 'sender_name') || lead?.contact_name_raw || null
+  const senderEmail = value(formData, 'sender_email') || lead?.email_raw || null
+  const senderPhone = value(formData, 'sender_phone') || lead?.phone_raw || null
+  const subject = value(formData, 'subject') || null
+  const receivedAt = value(formData, 'received_at')
+
+  const { error } = await supabase.from('message_inbox').insert({
+    lead_id: leadId,
+    channel: ['email', 'telegram', 'whatsapp', 'sms', 'internal'].includes(channel) ? channel : 'email',
+    audience: 'family',
+    sender_name: senderName,
+    sender_email: senderEmail,
+    sender_phone: senderPhone,
+    subject,
+    body,
+    provider: 'manual',
+    received_at: receivedAt ? new Date(receivedAt).toISOString() : new Date().toISOString(),
+    metadata: { source: 'lead_card_manual_inbound' },
+  })
+
+  if (error) redirect(`/dashboard/my-leads?open=${encodeURIComponent(leadId)}&error=${encodeURIComponent(error.message)}`)
+
+  await supabase.from('activity_log').insert({
+    actor_user_id: user!.id,
+    entity_type: 'lead',
+    entity_id: leadId,
+    event_type: 'lead_inbound_message_recorded',
+    title: 'Входящее сообщение добавлено',
+    body: subject ? `${subject}\n\n${body}` : body,
+    metadata: { channel, source: 'lead_card' },
+  })
+
+  refreshLeadPaths(leadId)
+  revalidatePath('/dashboard/communications')
+  redirect(`/dashboard/my-leads?open=${encodeURIComponent(leadId)}#lead-communications`)
+}
+
 export async function convertLeadToDeal(formData: FormData) {
   const { supabase } = await requireAbility('/dashboard/leads', 'lead.convert')
   const leadId = value(formData, 'lead_id')

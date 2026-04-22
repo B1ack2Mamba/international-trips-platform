@@ -1,9 +1,9 @@
 import Link from 'next/link'
-import { generateLeadScriptAction, queueLeadManualMessageAction, updateLeadPersonalInfoAction } from '@/app/dashboard/leads/actions'
+import { generateLeadScriptAction, queueLeadManualMessageAction, recordLeadIncomingMessageAction, updateLeadPersonalInfoAction } from '@/app/dashboard/leads/actions'
 import { formatCurrency, formatDateTime } from '@/lib/format'
 import { label } from '@/lib/labels'
 import type { LeadAssignableProfile } from '@/lib/lead-access'
-import type { ActivityRow, ContractRow, DealFlowSummary, DealRow, LeadRow, PaymentRow, SalesScriptRow, TaskRow } from '@/lib/queries'
+import type { ActivityRow, ContractRow, DealFlowSummary, DealRow, LeadCommunicationRow, LeadRow, PaymentRow, SalesScriptRow, TaskRow } from '@/lib/queries'
 
 export function LeadWorkspaceDrawer({
   lead,
@@ -14,6 +14,7 @@ export function LeadWorkspaceDrawer({
   contracts = [],
   payments = [],
   tasks = [],
+  communications = [],
   scriptsMode = false,
   returnPath = '/dashboard/leads',
 }: {
@@ -25,6 +26,7 @@ export function LeadWorkspaceDrawer({
   contracts?: ContractRow[]
   payments?: PaymentRow[]
   tasks?: TaskRow[]
+  communications?: LeadCommunicationRow[]
   assignableProfiles: LeadAssignableProfile[]
   scriptsMode?: boolean
   returnPath?: string
@@ -125,9 +127,32 @@ export function LeadWorkspaceDrawer({
 
       <div id="lead-communications" className="lead-inline-form lead-communications-form">
         <div>
-          <h3 style={{ margin: 0 }}>Сообщение клиенту</h3>
-          <div className="micro">Поставит письмо или сообщение в единую очередь коммуникаций.</div>
+          <h3 style={{ margin: 0 }}>Связь с клиентом</h3>
+          <div className="micro">Единая лента входящих и исходящих сообщений по клиенту.</div>
         </div>
+        {communications.length ? (
+          <div className="lead-communication-timeline">
+            {communications.map((message) => (
+              <div key={`${message.direction}-${message.id}`} className={`lead-communication-item lead-communication-item--${message.direction}`}>
+                <div className="lead-communication-item__head">
+                  <span className="badge">{message.direction === 'inbound' ? 'Входящее' : 'Исходящее'}</span>
+                  <span className="micro">{message.channel}{message.status ? ` · ${label('outboxStatus', message.status)}` : ''}</span>
+                  <span className="micro">{formatDateTime(message.occurred_at)}</span>
+                </div>
+                <div className="lead-communication-item__contact">
+                  {message.contact_name || message.contact_email || message.contact_phone || 'Контакт не указан'}
+                </div>
+                {message.subject ? <strong>{message.subject}</strong> : null}
+                <div className="lead-communication-item__body">{message.body}</div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="notice">Переписки пока нет. Отправьте сообщение или добавьте входящий ответ клиента.</div>
+        )}
+
+        <details className="lead-communication-compose">
+          <summary>Написать клиенту</summary>
         <form action={queueLeadManualMessageAction} className="compact-form-grid compact-form-grid--lead-message">
           <input type="hidden" name="lead_id" value={lead.id} />
           <label>Получатель<input name="recipient_name" defaultValue={lead.contact_name_raw || ''} placeholder="Имя клиента" /></label>
@@ -148,6 +173,31 @@ export function LeadWorkspaceDrawer({
           <label className="lead-personal-wide">Текст<textarea name="body" placeholder="Текст сообщения клиенту" required /></label>
           <div className="form-actions"><button className="button-secondary">Поставить в очередь</button></div>
         </form>
+        </details>
+
+        <details className="lead-communication-compose">
+          <summary>Добавить входящий ответ</summary>
+          <form action={recordLeadIncomingMessageAction} className="compact-form-grid compact-form-grid--lead-message">
+            <input type="hidden" name="lead_id" value={lead.id} />
+            <label>Отправитель<input name="sender_name" defaultValue={lead.contact_name_raw || ''} placeholder="Имя клиента" /></label>
+            <label>
+              Канал
+              <select name="channel" defaultValue="email">
+                <option value="email">Email</option>
+                <option value="whatsapp">WhatsApp</option>
+                <option value="telegram">Telegram</option>
+                <option value="sms">SMS</option>
+                <option value="internal">Внутреннее</option>
+              </select>
+            </label>
+            <label>Email<input name="sender_email" type="email" defaultValue={lead.email_raw || ''} placeholder="client@example.com" /></label>
+            <label>Телефон<input name="sender_phone" defaultValue={lead.phone_raw || ''} placeholder="+7..." /></label>
+            <label>Получено<input name="received_at" type="datetime-local" /></label>
+            <label className="lead-personal-wide">Тема<input name="subject" placeholder="Ответ по договору" /></label>
+            <label className="lead-personal-wide">Текст<textarea name="body" placeholder="Что написал или сказал клиент" required /></label>
+            <div className="form-actions"><button className="button-secondary">Добавить в историю связи</button></div>
+          </form>
+        </details>
       </div>
 
       {scriptsMode && scripts.length ? (
