@@ -30,12 +30,20 @@ export function DashboardShellClient({
 
   return (
     <div className={`dashboard-shell dashboard-shell--studio ${collapsed ? 'is-collapsed' : ''}`}>
-      <div className="dashboard-sidebar-wrap">{sidebar}</div>
+      <div className="dashboard-sidebar-wrap">
+        <button
+          type="button"
+          className="dashboard-sidebar-toggle"
+          onClick={() => setCollapsed((value) => !value)}
+          aria-label={collapsed ? 'Показать меню' : 'Скрыть меню'}
+          title={collapsed ? 'Показать меню' : 'Скрыть меню'}
+        >
+          {collapsed ? '›' : '‹'}
+        </button>
+        {sidebar}
+      </div>
       <section className="dashboard-main">
         <div className="dashboard-workbar">
-          <button type="button" className="button-secondary" onClick={() => setCollapsed((value) => !value)}>
-            {collapsed ? 'Показать меню' : 'Скрыть меню'}
-          </button>
           {workbar ? <div className="dashboard-workbar-extra">{workbar}</div> : null}
         </div>
         <div className="content-stack">{children}</div>

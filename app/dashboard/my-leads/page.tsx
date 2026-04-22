@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { completeLeadTaskAction, convertLeadToDeal, createLeadNoteAction, createLeadTaskAction, generateLeadScriptAction, transferLeadOwner, updateLeadStatus } from '@/app/dashboard/leads/actions'
+import { completeLeadTaskAction, convertLeadToDeal, createLeadTaskAction, generateLeadScriptAction, transferLeadOwner, updateLeadStatus } from '@/app/dashboard/leads/actions'
 import { createGeneralTaskAction, updateTaskStatusAction } from '@/app/dashboard/tasks/actions'
 import { LeadRegistryTable } from '@/components/lead-registry-table'
 import { LeadWorkspaceDrawer } from '@/components/lead-workspace-drawer'
@@ -65,28 +65,14 @@ function MyLeadActionPanel({
       <div className="lead-inline-form">
         <div className="lead-action-popover__head">
           <div>
-            <h3>Комментарий в ленту</h3>
-            <div className="micro">Фиксируйте звонки, договорённости, возражения и важный контекст.</div>
+            <h3>Дела по клиенту</h3>
+            <div className="micro">Создавайте задачи по этому человеку и закрывайте их прямо здесь.</div>
           </div>
-        </div>
-        <form action={createLeadNoteAction} className="compact-form-grid compact-form-grid--lead-note">
-          <input type="hidden" name="lead_id" value={lead.id} />
-          <label>Тип заметки<input name="title" placeholder="Звонок / WhatsApp / договорённость" defaultValue="Комментарий менеджера" /></label>
-          <label className="lead-note-field">Комментарий<textarea name="note" placeholder="Что произошло и что важно помнить" required /></label>
-          <div className="form-actions"><button className="button-secondary">Добавить в ленту</button></div>
-        </form>
-      </div>
-
-      <div className="lead-inline-form">
-        <div className="lead-action-popover__head">
-          <div>
-            <h3>Следующее касание</h3>
-            <div className="micro">Задача закрепится за этим клиентом и будет видна в CRM.</div>
-          </div>
+          <span className="badge">Задач: {tasks.length}</span>
         </div>
         <form action={createLeadTaskAction} className="compact-form-grid compact-form-grid--lead-task">
           <input type="hidden" name="lead_id" value={lead.id} />
-          <label>Что сделать<input name="title" placeholder="Позвонить и согласовать договор" required /></label>
+          <label>Задача<input name="title" placeholder="Позвонить и согласовать договор" required /></label>
           <label>Когда<input name="due_date" type="datetime-local" /></label>
           <label>
             Приоритет
@@ -97,7 +83,8 @@ function MyLeadActionPanel({
               <option value="critical">Критический</option>
             </select>
           </label>
-          <div className="form-actions"><button className="button-secondary">Поставить задачу</button></div>
+          <label className="lead-task-description-field">Описание<textarea name="description" placeholder="Коротко: что сделать и какой результат нужен" /></label>
+          <div className="form-actions"><button className="button-secondary">Создать задачу</button></div>
         </form>
         {tasks.length ? (
           <div className="lead-task-list">

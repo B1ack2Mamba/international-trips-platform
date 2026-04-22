@@ -373,20 +373,52 @@ form {
 }
 
 .dashboard-shell.is-collapsed {
-  grid-template-columns: 0 minmax(0, 1fr);
+  grid-template-columns: 46px minmax(0, 1fr);
 }
 
 .dashboard-sidebar-wrap {
+  position: sticky;
+  top: 92px;
   min-width: 0;
+  align-self: start;
 }
 
 .dashboard-shell.is-collapsed .dashboard-sidebar-wrap {
-  overflow: hidden;
+  min-height: 42px;
 }
 
 .dashboard-shell.is-collapsed .sidebar {
   opacity: 0;
   pointer-events: none;
+  visibility: hidden;
+}
+
+.dashboard-sidebar-toggle {
+  position: absolute;
+  top: 0;
+  right: -14px;
+  z-index: 20;
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(18, 27, 48, 0.96);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 22px;
+  line-height: 1;
+  box-shadow: 0 12px 28px rgba(2, 6, 23, 0.28);
+}
+
+.dashboard-sidebar-toggle:hover {
+  border-color: rgba(125, 211, 252, 0.45);
+  background: rgba(29, 45, 78, 0.98);
+}
+
+.dashboard-shell.is-collapsed .dashboard-sidebar-toggle {
+  right: 5px;
 }
 
 .dashboard-main {
@@ -3120,6 +3152,10 @@ body.builder-mode .constructor-board-stage {
 .lead-task-list {
   display: grid;
   gap: 8px;
+}
+
+.lead-task-description-field {
+  grid-column: 1 / -1;
 }
 
 .lead-task-item {
