@@ -2,7 +2,7 @@ import { getMessageDispatchWebhookUrl, isMessageDispatchDryRun } from '@/lib/env
 import { formatDateTime } from '@/lib/format'
 import { label } from '@/lib/labels'
 import { createClient } from '@/lib/supabase/server'
-import { dispatchOutboxNowAction, queueApplicationTemplateAction, updateOutboxStatusAction } from './actions'
+import { dispatchOutboxNowAction, queueApplicationTemplateAction, queueManualMessageAction, updateOutboxStatusAction } from './actions'
 
 function getDispatcherMode() {
   if (getMessageDispatchWebhookUrl()) return 'webhook'
@@ -10,19 +10,26 @@ function getDispatcherMode() {
   return 'manual_only'
 }
 
-export default async function CommunicationsPage() {
+export default async function CommunicationsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
+}) {
+  const params = (await searchParams) ?? {}
+  const statusFilter = typeof params.status === 'string' ? params.status : ''
   const supabase = await createClient()
   const [templatesRes, outboxRes] = await Promise.all([
     supabase.from('message_templates').select('id, code, channel, audience, title, is_active, created_at').order('code', { ascending: true }),
     supabase
       .from('message_outbox')
-      .select('id, application_id, partner_account_id, channel, audience, template_code, recipient_name, recipient_email, subject, status, send_after, sent_at, created_at, last_error')
+      .select('id, application_id, partner_account_id, channel, audience, template_code, recipient_name, recipient_email, recipient_phone, subject, body, status, send_after, sent_at, created_at, last_error')
       .order('created_at', { ascending: false })
       .limit(60),
   ])
 
   const templates = templatesRes.data ?? []
-  const outbox = outboxRes.data ?? []
+  const allOutbox = outboxRes.data ?? []
+  const outbox = statusFilter ? allOutbox.filter((message) => message.status === statusFilter) : allOutbox
   const queuedCount = outbox.filter((message) => message.status === 'queued' || message.status === 'processing').length
   const failedCount = outbox.filter((message) => message.status === 'failed').length
   const sentCount = outbox.filter((message) => message.status === 'sent').length
@@ -40,11 +47,47 @@ export default async function CommunicationsPage() {
       <section className="kpi-grid">
         <article className="card kpi"><div className="kpi-label">Dispatcher mode</div><div className="kpi-value">{dispatcherMode}</div><div className="micro">webhook / dry_run / manual_only</div></article>
         <article className="card kpi"><div className="kpi-label">Queued</div><div className="kpi-value">{queuedCount}</div><div className="micro">ожидают отправки</div></article>
-        <article className="card kpi"><div className="kpi-label">Ошибкаed</div><div className="kpi-value">{failedCount}</div><div className="micro">требуют внимания</div></article>
+        <article className="card kpi"><div className="kpi-label">Ошибки</div><div className="kpi-value">{failedCount}</div><div className="micro">требуют внимания</div></article>
         <article className="card kpi"><div className="kpi-label">Sent</div><div className="kpi-value">{sentCount}</div><div className="micro">в последних 60 записях</div></article>
       </section>
 
       <section className="grid-2">
+        <article className="card stack">
+          <h2 style={{ margin: 0 }}>Ручное сообщение</h2>
+          <form action={queueManualMessageAction}>
+            <div className="form-grid">
+              <label>Получатель<input name="recipient_name" placeholder="Анна Иванова" /></label>
+              <label>Email<input name="recipient_email" type="email" placeholder="client@example.com" /></label>
+              <label>Телефон<input name="recipient_phone" placeholder="+7..." /></label>
+              <label>
+                Канал
+                <select name="channel" defaultValue="email">
+                  <option value="email">Email</option>
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="telegram">Telegram</option>
+                  <option value="sms">SMS</option>
+                  <option value="internal">Внутреннее</option>
+                </select>
+              </label>
+              <label>
+                Аудитория
+                <select name="audience" defaultValue="family">
+                  <option value="family">Семья</option>
+                  <option value="staff">Команда</option>
+                  <option value="partner">Партнёр</option>
+                  <option value="system">Система</option>
+                </select>
+              </label>
+              <label>Отправить после<input name="send_after" type="datetime-local" /></label>
+              <label className="communications-subject-field">Тема<input name="subject" placeholder="Следующий шаг по поездке" /></label>
+              <label className="communications-body-field">Текст<textarea name="body" placeholder="Текст сообщения клиенту или команде" required /></label>
+            </div>
+            <div className="form-actions">
+              <button className="button">Поставить в очередь</button>
+            </div>
+          </form>
+        </article>
+
         <article className="card stack">
           <h2 style={{ margin: 0 }}>Поставить сообщение в очередь</h2>
           <form action={queueApplicationTemplateAction}>
@@ -128,7 +171,20 @@ export default async function CommunicationsPage() {
       </section>
 
       <article className="card stack">
-        <h2 style={{ margin: 0 }}>Исходящие сообщения</h2>
+        <div className="section-mini-head">
+          <h2>Исходящие сообщения</h2>
+          <form className="inline-filter-form" action="/dashboard/communications">
+            <select name="status" defaultValue={statusFilter}>
+              <option value="">Все статусы</option>
+              <option value="queued">В очереди</option>
+              <option value="processing">Обрабатывается</option>
+              <option value="sent">Отправлено</option>
+              <option value="failed">Ошибка</option>
+              <option value="cancelled">Отменено</option>
+            </select>
+            <button className="button-secondary">Показать</button>
+          </form>
+        </div>
         <div className="table-wrap">
           <table className="table">
             <thead>
@@ -146,11 +202,12 @@ export default async function CommunicationsPage() {
                 <tr key={message.id}>
                   <td>
                     <div>{message.recipient_name || 'Без имени'}</div>
-                    <div className="micro">{message.recipient_email || '—'}</div>
+                    <div className="micro">{message.recipient_email || message.recipient_phone || '—'}</div>
                   </td>
                   <td>
                     <div>{message.template_code || 'вручную'}</div>
                     <div className="micro">{message.subject || 'Без темы'}</div>
+                    <div className="micro outbox-body-preview">{message.body}</div>
                   </td>
                   <td>{label('channel', message.channel)}</td>
                   <td>

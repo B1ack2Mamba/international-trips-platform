@@ -3229,6 +3229,30 @@ body.builder-mode .constructor-board-stage {
   flex-wrap: wrap;
 }
 
+.communications-subject-field,
+.communications-body-field {
+  grid-column: 1 / -1;
+}
+
+.inline-filter-form {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.inline-filter-form select {
+  min-width: 180px;
+}
+
+.outbox-body-preview {
+  max-width: 360px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .registry-actions--lead-row {
   grid-template-columns: 1fr;
   min-width: 118px;

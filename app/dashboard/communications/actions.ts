@@ -96,6 +96,32 @@ export async function queueApplicationTemplateAction(formData: FormData) {
   refreshCommunicationPaths()
 }
 
+export async function queueManualMessageAction(formData: FormData) {
+  const { supabase } = await requireAbility('/dashboard/communications', 'communication.queue')
+  const channel = value(formData, 'channel') || 'email'
+  const audience = value(formData, 'audience') || 'family'
+  const body = value(formData, 'body')
+  const sendAfter = value(formData, 'send_after')
+
+  if (!body) return
+
+  const { error } = await supabase.from('message_outbox').insert({
+    channel: ['email', 'telegram', 'whatsapp', 'sms', 'internal'].includes(channel) ? channel : 'email',
+    audience: ['family', 'staff', 'partner', 'system'].includes(audience) ? audience : 'family',
+    template_code: null,
+    recipient_name: value(formData, 'recipient_name') || null,
+    recipient_email: value(formData, 'recipient_email') || null,
+    recipient_phone: value(formData, 'recipient_phone') || null,
+    subject: value(formData, 'subject') || null,
+    body,
+    send_after: sendAfter ? new Date(sendAfter).toISOString() : new Date().toISOString(),
+    metadata: { source: 'dashboard_manual_message' },
+  })
+
+  if (error) redirect(`/error?message=${encodeURIComponent(error.message)}`)
+  refreshCommunicationPaths()
+}
+
 export async function updateOutboxStatusAction(formData: FormData) {
   const { supabase } = await requireAbility('/dashboard/communications', 'communication.outbox_manage')
   const messageId = value(formData, 'message_id')
