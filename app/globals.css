@@ -2848,6 +2848,16 @@ body.builder-mode .constructor-board-stage {
   align-items: end;
 }
 
+.compact-form-grid--lead-note {
+  grid-template-columns: minmax(180px, 0.8fr) minmax(260px, 1.6fr) auto;
+  align-items: end;
+}
+
+.lead-note-field textarea {
+  min-height: 44px;
+  max-height: 86px;
+}
+
 .leads-message-field textarea {
   min-height: 44px;
   max-height: 44px;
@@ -3010,6 +3020,10 @@ body.builder-mode .constructor-board-stage {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .compact-form-grid--lead-note {
+    grid-template-columns: 1fr;
+  }
+
   .lead-inline-form--deal .form-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3029,6 +3043,7 @@ body.builder-mode .constructor-board-stage {
   }
 
   .compact-form-grid--lead-task,
+  .compact-form-grid--lead-note,
   .lead-task-item {
     grid-template-columns: 1fr;
   }

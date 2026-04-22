@@ -1,10 +1,10 @@
 import Link from 'next/link'
-import { completeDealPaymentAndMoveAction, completeDealTaskAction, createDeal, createDealTaskAction, transferDealOwnerAction, updateDealContextAction, updateDealPaymentProgressAction } from './actions'
+import { completeDealPaymentAndMoveAction, completeDealTaskAction, createDeal, createDealNoteAction, createDealTaskAction, transferDealOwnerAction, updateDealContextAction, updateDealPaymentProgressAction } from './actions'
 import { ProcessTrail } from '@/components/process-trail'
-import { formatCurrency, formatDate } from '@/lib/format'
+import { formatCurrency, formatDate, formatDateTime } from '@/lib/format'
 import { label } from '@/lib/labels'
 import { DealRegistryTable } from '@/components/deal-registry-table'
-import { getAssignableManagers, getDealById, getDealFlowSummaries, getDeals, getDepartures, getPartnerAccounts, getPaymentsByDeal, getPrograms, getRecentLeads, getTasksByDeal } from '@/lib/queries'
+import { getActivityLog, getAssignableManagers, getDealById, getDealFlowSummaries, getDeals, getDepartures, getPartnerAccounts, getPaymentsByDeal, getPrograms, getRecentLeads, getTasksByDeal } from '@/lib/queries'
 
 function leadInterestLine(deal: Awaited<ReturnType<typeof getDealById>>) {
   if (!deal) return 'Интерес не указан'
@@ -22,7 +22,7 @@ export default async function DealsPage({
   const openDealId = typeof params.open === 'string' ? params.open : created
   const payMode = params.pay === '1'
 
-  const [deals, leads, createdDeal, openDeal, programs, departures, partnerAccounts, managers, openPayments, openTasks] = await Promise.all([
+  const [deals, leads, createdDeal, openDeal, programs, departures, partnerAccounts, managers, openPayments, openTasks, openActivities] = await Promise.all([
     getDeals(40),
     getRecentLeads(50),
     created ? getDealById(created) : Promise.resolve(null),
@@ -33,6 +33,7 @@ export default async function DealsPage({
     openDealId ? getAssignableManagers(100) : Promise.resolve([]),
     openDealId ? getPaymentsByDeal(openDealId, 20) : Promise.resolve([]),
     openDealId ? getTasksByDeal(openDealId, 10) : Promise.resolve([]),
+    openDealId ? getActivityLog('deal', openDealId, 20) : Promise.resolve([]),
   ])
 
   const visibleDeals = createdDeal && !deals.some((deal) => deal.id === createdDeal.id) ? [createdDeal, ...deals] : deals
@@ -166,6 +167,27 @@ export default async function DealsPage({
                 <div><strong>Канал:</strong> <span className="micro-inline">{openDeal.lead?.source_channel || 'Не указан'}</span></div>
                 <div><strong>Страна / интерес:</strong> <span className="micro-inline">{openDeal.lead?.desired_country || openDeal.lead?.desired_program?.title || 'Не указан'}</span></div>
                 <div><strong>Комментарий лида:</strong> <span className="micro-inline">{openDeal.lead?.message || 'Пусто'}</span></div>
+              </div>
+            </div>
+
+            <div className="card-subtle stack">
+              <h3 style={{ margin: 0 }}>Лента сделки</h3>
+              <form action={createDealNoteAction} className="compact-form-grid compact-form-grid--lead-note">
+                <input type="hidden" name="deal_id" value={openDeal.id} />
+                <label>Тип заметки<input name="title" placeholder="Звонок / договор / оплата" defaultValue="Комментарий менеджера" /></label>
+                <label className="lead-note-field">Комментарий<textarea name="note" placeholder="Что произошло по сделке" required /></label>
+                <div className="form-actions"><button className="button-secondary">Добавить</button></div>
+              </form>
+              <div id="deal-timeline" className="lead-task-list">
+                {openActivities.length ? openActivities.map((activity) => (
+                  <div key={activity.id} className="lead-task-item">
+                    <div>
+                      <strong>{activity.title}</strong>
+                      <div className="micro">{formatDateTime(activity.created_at)} · {activity.actor?.full_name || activity.actor?.email || 'система'}</div>
+                      {activity.body ? <div className="micro" style={{ whiteSpace: 'pre-wrap', marginTop: 4 }}>{activity.body}</div> : null}
+                    </div>
+                  </div>
+                )) : <div className="micro">Лента сделки пока пустая.</div>}
               </div>
             </div>
 

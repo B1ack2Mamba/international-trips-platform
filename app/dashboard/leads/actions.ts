@@ -327,6 +327,26 @@ export async function createLeadTaskAction(formData: FormData) {
   redirect(`/dashboard/my-leads?open=${encodeURIComponent(leadId)}`)
 }
 
+export async function createLeadNoteAction(formData: FormData) {
+  const { supabase, user } = await requireAbility('/dashboard/leads', 'lead.update')
+  const leadId = value(formData, 'lead_id')
+  const note = value(formData, 'note')
+  if (!leadId || !note) return
+
+  await supabase.from('activity_log').insert({
+    actor_user_id: user!.id,
+    entity_type: 'lead',
+    entity_id: leadId,
+    event_type: 'lead_note_added',
+    title: value(formData, 'title') || 'Комментарий менеджера',
+    body: note,
+    metadata: { source: 'lead_timeline' },
+  })
+
+  refreshLeadPaths(leadId)
+  redirect(`/dashboard/my-leads?open=${encodeURIComponent(leadId)}&history=1#lead-history`)
+}
+
 export async function completeLeadTaskAction(formData: FormData) {
   const { supabase, user } = await requireAbility('/dashboard/leads', 'lead.update')
   const leadId = value(formData, 'lead_id')

@@ -605,6 +605,26 @@ export async function createDealTaskAction(formData: FormData) {
   redirect(`/dashboard/deals?open=${encodeURIComponent(dealId)}#deal-editor`)
 }
 
+export async function createDealNoteAction(formData: FormData) {
+  const { supabase, user } = await requireAbility('/dashboard/deals', 'deal.update')
+  const dealId = value(formData, 'deal_id')
+  const note = value(formData, 'note')
+  if (!dealId || !note) return
+
+  await supabase.from('activity_log').insert({
+    actor_user_id: user!.id,
+    entity_type: 'deal',
+    entity_id: dealId,
+    event_type: 'deal_note_added',
+    title: value(formData, 'title') || 'Комментарий менеджера',
+    body: note,
+    metadata: { source: 'deal_timeline' },
+  })
+
+  refreshDealPaths(dealId)
+  redirect(`/dashboard/deals?open=${encodeURIComponent(dealId)}#deal-timeline`)
+}
+
 export async function completeDealTaskAction(formData: FormData) {
   const { supabase, user } = await requireAbility('/dashboard/deals', 'deal.update')
   const dealId = value(formData, 'deal_id')

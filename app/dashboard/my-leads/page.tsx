@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { completeLeadTaskAction, convertLeadToDeal, createLeadTaskAction, generateLeadScriptAction, transferLeadOwner, updateLeadStatus } from '@/app/dashboard/leads/actions'
+import { completeLeadTaskAction, convertLeadToDeal, createLeadNoteAction, createLeadTaskAction, generateLeadScriptAction, transferLeadOwner, updateLeadStatus } from '@/app/dashboard/leads/actions'
 import { LeadRegistryTable } from '@/components/lead-registry-table'
 import { LeadWorkspaceDrawer } from '@/components/lead-workspace-drawer'
 import { getLeadAssignableProfiles, type LeadAssignableProfile } from '@/lib/lead-access'
@@ -62,6 +62,21 @@ function MyLeadActionPanel({
           <button className="button-secondary">ИИ-скрипт</button>
         </form>
         <Link className="button-secondary" href={historyOpen ? `${baseHref}#lead-action-panel` : `${baseHref}&history=1#lead-history`}>История действий</Link>
+      </div>
+
+      <div className="lead-inline-form">
+        <div className="lead-action-popover__head">
+          <div>
+            <h3>Комментарий в ленту</h3>
+            <div className="micro">Фиксируйте звонки, договорённости, возражения и важный контекст.</div>
+          </div>
+        </div>
+        <form action={createLeadNoteAction} className="compact-form-grid compact-form-grid--lead-note">
+          <input type="hidden" name="lead_id" value={lead.id} />
+          <label>Тип заметки<input name="title" placeholder="Звонок / WhatsApp / договорённость" defaultValue="Комментарий менеджера" /></label>
+          <label className="lead-note-field">Комментарий<textarea name="note" placeholder="Что произошло и что важно помнить" required /></label>
+          <div className="form-actions"><button className="button-secondary">Добавить в ленту</button></div>
+        </form>
       </div>
 
       <div className="lead-inline-form">
