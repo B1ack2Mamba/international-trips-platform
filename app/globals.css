@@ -3045,6 +3045,15 @@ body.builder-mode .constructor-board-stage {
   gap: 8px;
 }
 
+.compact-form-grid--tasks-filters {
+  grid-template-columns: minmax(180px, 0.5fr) minmax(180px, 0.5fr) auto;
+  align-items: end;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
 .registry-actions--lead-row {
   grid-template-columns: 1fr;
   min-width: 118px;
@@ -3068,6 +3077,10 @@ body.builder-mode .constructor-board-stage {
   }
 
   .compact-form-grid--lead-note {
+    grid-template-columns: 1fr;
+  }
+
+  .compact-form-grid--tasks-filters {
     grid-template-columns: 1fr;
   }
 

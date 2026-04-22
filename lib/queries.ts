@@ -369,6 +369,9 @@ export type TaskRow = {
   due_date: string | null
   priority: string
   created_at: string
+  lead?: { id: string; contact_name_raw: string | null; phone_raw: string | null; email_raw: string | null } | null
+  deal?: { id: string; title: string; stage: string | null } | null
+  application?: { id: string; participant_name: string | null } | null
 }
 
 export type ActivityRow = {
@@ -922,7 +925,26 @@ export async function getSalesScriptsBySegment(segment: string, limit = 20): Pro
 
 export async function getTasks(limit = 20): Promise<TaskRow[]> {
   const supabase = await createClient()
-  const { data } = await supabase.from('tasks').select('id, owner_user_id, lead_id, deal_id, application_id, title, description, status, due_date, priority, created_at').order('created_at', { ascending: false }).limit(limit)
+  const { data } = await supabase.from('tasks').select(`id, owner_user_id, lead_id, deal_id, application_id, title, description, status, due_date, priority, created_at,
+      lead:leads(id, contact_name_raw, phone_raw, email_raw),
+      deal:deals(id, title, stage),
+      application:applications(id, participant_name)`).order('created_at', { ascending: false }).limit(limit)
+  return asRows<TaskRow>(data)
+}
+
+export async function getTasksForOwner(ownerUserId: string, limit = 100): Promise<TaskRow[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('tasks')
+    .select(`id, owner_user_id, lead_id, deal_id, application_id, title, description, status, due_date, priority, created_at,
+      lead:leads(id, contact_name_raw, phone_raw, email_raw),
+      deal:deals(id, title, stage),
+      application:applications(id, participant_name)`)
+    .or(`owner_user_id.eq.${ownerUserId},owner_user_id.is.null`)
+    .in('status', ['todo', 'doing'])
+    .order('due_date', { ascending: true, nullsFirst: false })
+    .order('created_at', { ascending: false })
+    .limit(limit)
   return asRows<TaskRow>(data)
 }
 
