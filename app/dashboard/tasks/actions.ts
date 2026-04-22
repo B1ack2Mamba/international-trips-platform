@@ -10,6 +10,7 @@ function value(formData: FormData, key: string) {
 
 function refreshTaskPaths() {
   revalidatePath('/dashboard')
+  revalidatePath('/dashboard', 'layout')
   revalidatePath('/dashboard/tasks')
   revalidatePath('/dashboard/my-leads')
   revalidatePath('/dashboard/deals')

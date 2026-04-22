@@ -444,11 +444,131 @@ form {
 }
 
 .workbar-reminders {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
   min-width: 0;
+}
+
+.workbar-notifications {
+  position: relative;
+}
+
+.workbar-notifications-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text);
+  padding: 8px 12px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.workbar-notifications-trigger::-webkit-details-marker {
+  display: none;
+}
+
+.workbar-notifications-title {
+  font-weight: 800;
+}
+
+.workbar-notifications-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(77, 208, 225, 0.18);
+  color: #dffbff;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.workbar-notifications.is-danger .workbar-notifications-trigger {
+  border-color: rgba(255, 122, 122, 0.48);
+  background: rgba(255, 122, 122, 0.14);
+}
+
+.workbar-notifications.is-danger .workbar-notifications-count {
+  background: rgba(239, 68, 68, 0.92);
+  color: #fff;
+}
+
+.workbar-notifications.is-warning .workbar-notifications-trigger {
+  border-color: rgba(255, 195, 90, 0.48);
+  background: rgba(255, 195, 90, 0.14);
+}
+
+.workbar-notifications.is-warning .workbar-notifications-count {
+  background: rgba(245, 158, 11, 0.92);
+  color: #111827;
+}
+
+.workbar-notifications-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 40;
+  display: grid;
+  gap: 10px;
+  width: min(440px, calc(100vw - 28px));
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(12, 18, 34, 0.98);
+  box-shadow: 0 22px 60px rgba(2, 6, 23, 0.42);
+}
+
+.workbar-notifications-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.workbar-notification-list {
+  display: grid;
+  gap: 8px;
+}
+
+.workbar-notification-item {
+  display: grid;
+  gap: 3px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--text);
+  padding: 10px 11px;
+  text-decoration: none;
+}
+
+.workbar-notification-item:hover {
+  border-color: rgba(125, 211, 252, 0.45);
+}
+
+.workbar-notification-item span,
+.workbar-notification-item small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workbar-notification-item small,
+.workbar-notification-empty {
+  color: var(--muted);
+}
+
+.workbar-reminder-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .workbar-reminder-chip {
@@ -3517,6 +3637,25 @@ body.builder-mode .constructor-board-stage {
     align-items: stretch;
     flex-wrap: wrap;
     justify-content: stretch;
+  }
+
+  .workbar-notifications,
+  .workbar-notifications-trigger {
+    width: 100%;
+  }
+
+  .workbar-notifications-trigger {
+    justify-content: space-between;
+  }
+
+  .workbar-notifications-panel {
+    left: 0;
+    right: auto;
+    width: 100%;
+  }
+
+  .workbar-reminder-meta {
+    width: 100%;
   }
 
   .workbar-reminder-chip {

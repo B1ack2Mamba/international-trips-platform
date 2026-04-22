@@ -7,7 +7,7 @@ function taskHref(task: TaskRow) {
   if (task.lead_id) return `/dashboard/my-leads?open=${task.lead_id}`
   if (task.deal_id) return `/dashboard/deals?deal=${task.deal_id}`
   if (task.application_id) return `/dashboard/applications?application=${task.application_id}`
-  return '/dashboard/my-leads#my-tasks'
+  return '/dashboard/tasks'
 }
 
 function taskContext(task: TaskRow) {
@@ -24,35 +24,50 @@ function reminderTone(summary: Awaited<ReturnType<typeof getTaskReminderSummary>
 }
 
 export async function WorkbarReminders({ profileId }: { profileId: string }) {
-  const summary = await getTaskReminderSummary(profileId, 4)
+  const summary = await getTaskReminderSummary(profileId, 8)
   const tone = reminderTone(summary)
 
   return (
     <div className="workbar-reminders" aria-label="Напоминания CRM">
-      <Link className={`workbar-reminder-chip ${tone}`} href="/dashboard/my-leads#my-tasks">
-        <span>Мои дела</span>
-        <strong>{summary.total_open}</strong>
-      </Link>
-      <Link className={`workbar-reminder-chip ${tone}`} href="/dashboard/my-leads#my-tasks">
-        <span>Просрочено</span>
-        <strong>{summary.overdue}</strong>
-      </Link>
-      <Link className="workbar-reminder-chip is-today" href="/dashboard/my-leads#my-tasks">
-        <span>Сегодня</span>
-        <strong>{summary.due_today}</strong>
-      </Link>
-      {summary.items.length > 0 ? (
-        <div className="workbar-reminder-list">
-          {summary.items.map((task) => (
-            <Link key={task.id} className="workbar-reminder-item" href={taskHref(task)}>
-              <span>{task.title}</span>
-              <small>
-                {taskContext(task)} · {formatDateTime(task.due_date)}
-              </small>
-            </Link>
-          ))}
+      <details className={`workbar-notifications ${tone}`}>
+        <summary className="workbar-notifications-trigger">
+          <span className="workbar-notifications-title">Мои дела</span>
+          <span className="workbar-notifications-count">{summary.total_open}</span>
+        </summary>
+        <div className="workbar-notifications-panel">
+          <div className="workbar-notifications-head">
+            <div>
+              <strong>Новые и активные задачи</strong>
+              <div className="micro">Просрочено: {summary.overdue} · Сегодня: {summary.due_today}</div>
+            </div>
+            <Link className="button-secondary" href="/dashboard/tasks">Все дела</Link>
+          </div>
+          {summary.items.length > 0 ? (
+            <div className="workbar-notification-list">
+              {summary.items.map((task) => (
+                <Link key={task.id} className="workbar-notification-item" href={taskHref(task)}>
+                  <span>{task.title}</span>
+                  <small>
+                    {taskContext(task)} · {formatDateTime(task.due_date)}
+                  </small>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="workbar-notification-empty">Новых задач нет.</div>
+          )}
         </div>
-      ) : null}
+      </details>
+      <div className="workbar-reminder-meta">
+        <Link className={`workbar-reminder-chip ${tone}`} href="/dashboard/tasks">
+          <span>Просрочено</span>
+          <strong>{summary.overdue}</strong>
+        </Link>
+        <Link className="workbar-reminder-chip is-today" href="/dashboard/tasks">
+          <span>Сегодня</span>
+          <strong>{summary.due_today}</strong>
+        </Link>
+      </div>
     </div>
   )
 }
