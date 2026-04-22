@@ -2998,6 +2998,53 @@ body.builder-mode .constructor-board-stage {
   background: rgba(255, 255, 255, 0.06);
 }
 
+.deal-kanban {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(220px, 1fr));
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.deal-kanban-column {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 220px;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.deal-kanban-column__head h3 {
+  margin: 0;
+  font-size: 0.98rem;
+}
+
+.deal-kanban-cards {
+  display: grid;
+  gap: 10px;
+}
+
+.deal-kanban-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 8px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.035)),
+    rgba(8, 13, 28, 0.82);
+  border: 1px solid rgba(250, 204, 21, 0.14);
+  box-shadow: 0 10px 28px rgba(2, 6, 23, 0.22);
+}
+
+.deal-kanban-stage-form {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
 .registry-actions--lead-row {
   grid-template-columns: 1fr;
   min-width: 118px;

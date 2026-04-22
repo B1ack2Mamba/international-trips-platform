@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { completeDealPaymentAndMoveAction, completeDealTaskAction, createDeal, createDealNoteAction, createDealTaskAction, transferDealOwnerAction, updateDealContextAction, updateDealPaymentProgressAction } from './actions'
+import { completeDealPaymentAndMoveAction, completeDealTaskAction, createDeal, createDealNoteAction, createDealTaskAction, transferDealOwnerAction, updateDealContextAction, updateDealPaymentProgressAction, updateDealStage } from './actions'
 import { ProcessTrail } from '@/components/process-trail'
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/format'
 import { label } from '@/lib/labels'
@@ -10,6 +10,8 @@ function leadInterestLine(deal: Awaited<ReturnType<typeof getDealById>>) {
   if (!deal) return 'Интерес не указан'
   return deal.lead?.desired_program?.title || deal.program?.title || deal.lead?.desired_country || deal.departure?.departure_name || 'Интерес не указан'
 }
+
+const pipelineStages = ['qualified', 'proposal', 'negotiation', 'won', 'lost']
 
 export default async function DealsPage({
   searchParams,
@@ -118,6 +120,57 @@ export default async function DealsPage({
         <article className="card stack"><div className="micro">На активных стадиях</div><div className="kpi-value">{visibleDeals.filter((deal) => ['qualified', 'proposal', 'negotiation'].includes(deal.stage)).length}</div></article>
         <article className="card stack"><div className="micro">Сумма по активным сделкам</div><div className="kpi-value">{formatCurrency(visibleDeals.reduce((sum, deal) => sum + Number(deal.estimated_value ?? 0), 0), 'RUB')}</div></article>
       </section>
+
+      <article className="card stack">
+        <div className="section-head" style={{ marginBottom: 0 }}>
+          <div>
+            <h2 style={{ margin: 0 }}>Воронка сделок</h2>
+            <div className="micro">Канбан по стадиям: видно, где застряли клиенты, и можно быстро перевести сделку дальше.</div>
+          </div>
+        </div>
+        <div className="deal-kanban">
+          {pipelineStages.map((stage) => {
+            const stageDeals = visibleDeals.filter((deal) => deal.stage === stage)
+            const stageSum = stageDeals.reduce((sum, deal) => sum + Number(deal.estimated_value ?? 0), 0)
+            return (
+              <section key={stage} className="deal-kanban-column">
+                <div className="deal-kanban-column__head">
+                  <div>
+                    <h3>{label('dealStage', stage)}</h3>
+                    <div className="micro">{stageDeals.length} сделок · {formatCurrency(stageSum, 'RUB')}</div>
+                  </div>
+                </div>
+                <div className="deal-kanban-cards">
+                  {stageDeals.length ? stageDeals.map((deal) => {
+                    const flow = flowByDealId[deal.id]
+                    const paid = Boolean(flow?.payment_amount && flow.payment_paid_amount >= flow.payment_amount)
+                    return (
+                      <div key={deal.id} className="deal-kanban-card">
+                        <Link href={`/dashboard/deals?open=${deal.id}#deal-editor`}>
+                          <strong>{deal.title}</strong>
+                          <div className="micro">{deal.lead?.contact_name_raw || deal.account?.display_name || 'Без клиента'}</div>
+                          <div className="micro">{formatCurrency(deal.estimated_value, deal.currency || 'RUB')}</div>
+                        </Link>
+                        <div className="badge-row">
+                          <span className="badge">{flow?.contract_status ? label('contractStatus', flow.contract_status) : 'Без договора'}</span>
+                          <span className={`badge ${paid ? 'success' : ''}`}>{paid ? 'Оплачено' : flow?.payment_paid_amount ? 'Частично' : 'Без оплаты'}</span>
+                        </div>
+                        <form action={updateDealStage} className="deal-kanban-stage-form">
+                          <input type="hidden" name="deal_id" value={deal.id} />
+                          <select name="stage" defaultValue={deal.stage}>
+                            {pipelineStages.map((option) => <option key={option} value={option}>{label('dealStage', option)}</option>)}
+                          </select>
+                          <button className="button-secondary">Перевести</button>
+                        </form>
+                      </div>
+                    )
+                  }) : <div className="muted">Пусто</div>}
+                </div>
+              </section>
+            )
+          })}
+        </div>
+      </article>
 
       <div className={`deal-workspace ${openDeal ? 'is-open' : ''}`}>
         <article className="card stack">

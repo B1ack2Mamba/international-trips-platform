@@ -225,14 +225,25 @@ export async function createDeal(formData: FormData) {
 }
 
 export async function updateDealStage(formData: FormData) {
-  const { supabase } = await requireAbility('/dashboard/deals', 'deal.update')
+  const { supabase, user } = await requireAbility('/dashboard/deals', 'deal.update')
   const dealId = value(formData, 'deal_id')
+  const stage = value(formData, 'stage')
   await supabase.rpc('update_deal_stage', {
     p_deal_id: dealId,
-    p_stage: value(formData, 'stage'),
+    p_stage: stage,
     p_note: optionalValue(formData, 'note'),
   })
+  await supabase.from('activity_log').insert({
+    actor_user_id: user!.id,
+    entity_type: 'deal',
+    entity_id: dealId,
+    event_type: 'deal_stage_changed',
+    title: 'Стадия сделки обновлена',
+    body: `Новая стадия: ${stage}`,
+    metadata: { stage },
+  })
   refreshDealPaths(dealId)
+  redirect(`/dashboard/deals?open=${encodeURIComponent(dealId)}#deal-editor`)
 }
 
 export async function updateDealContextAction(formData: FormData) {
