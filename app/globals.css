@@ -406,6 +406,90 @@ form {
   padding-top: 2px;
 }
 
+.dashboard-workbar-extra {
+  min-width: 0;
+  flex: 1;
+}
+
+.workbar-reminders {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.workbar-reminder-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  padding: 8px 12px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.workbar-reminder-chip span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.workbar-reminder-chip strong {
+  font-size: 15px;
+}
+
+.workbar-reminder-chip.is-danger {
+  border-color: rgba(255, 122, 122, 0.45);
+  background: rgba(255, 122, 122, 0.14);
+}
+
+.workbar-reminder-chip.is-warning {
+  border-color: rgba(255, 195, 90, 0.45);
+  background: rgba(255, 195, 90, 0.14);
+}
+
+.workbar-reminder-chip.is-calm,
+.workbar-reminder-chip.is-today {
+  border-color: rgba(77, 208, 225, 0.35);
+  background: rgba(77, 208, 225, 0.1);
+}
+
+.workbar-reminder-list {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 520px;
+}
+
+.workbar-reminder-item {
+  display: grid;
+  gap: 2px;
+  min-width: 150px;
+  max-width: 190px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(8, 13, 30, 0.68);
+  color: var(--text);
+  padding: 7px 9px;
+  text-decoration: none;
+}
+
+.workbar-reminder-item span,
+.workbar-reminder-item small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workbar-reminder-item small {
+  color: var(--muted);
+}
+
 .sidebar {
   position: sticky;
   top: 92px;
@@ -3261,11 +3345,28 @@ body.builder-mode .constructor-board-stage {
 @media (max-width: 1080px) {
   .dashboard-workbar {
     position: static;
+    align-items: stretch;
+    flex-direction: column;
     justify-content: stretch;
   }
 
   .dashboard-workbar .button-secondary {
     width: 100%;
+  }
+
+  .workbar-reminders {
+    align-items: stretch;
+    flex-wrap: wrap;
+    justify-content: stretch;
+  }
+
+  .workbar-reminder-chip {
+    flex: 1 1 120px;
+    justify-content: space-between;
+  }
+
+  .workbar-reminder-list {
+    display: none;
   }
 }
 

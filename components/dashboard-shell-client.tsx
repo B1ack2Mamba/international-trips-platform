@@ -4,7 +4,15 @@ import { useEffect, useState } from 'react'
 
 const STORAGE_KEY = 'dashboard_shell_sidebar_collapsed_v1'
 
-export function DashboardShellClient({ sidebar, children }: { sidebar: React.ReactNode; children: React.ReactNode }) {
+export function DashboardShellClient({
+  sidebar,
+  children,
+  workbar,
+}: {
+  sidebar: React.ReactNode
+  children: React.ReactNode
+  workbar?: React.ReactNode
+}) {
   const [collapsed, setCollapsed] = useState(false)
 
   useEffect(() => {
@@ -28,6 +36,7 @@ export function DashboardShellClient({ sidebar, children }: { sidebar: React.Rea
           <button type="button" className="button-secondary" onClick={() => setCollapsed((value) => !value)}>
             {collapsed ? 'Показать меню' : 'Скрыть меню'}
           </button>
+          {workbar ? <div className="dashboard-workbar-extra">{workbar}</div> : null}
         </div>
         <div className="content-stack">{children}</div>
       </section>

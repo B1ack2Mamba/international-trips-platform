@@ -948,6 +948,52 @@ export async function getTasksForOwner(ownerUserId: string, limit = 100): Promis
   return asRows<TaskRow>(data)
 }
 
+export type TaskReminderSummary = {
+  overdue: number
+  due_today: number
+  upcoming: number
+  total_open: number
+  items: TaskRow[]
+}
+
+function taskDueDate(task: TaskRow) {
+  if (!task.due_date) return null
+  const date = new Date(task.due_date)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+export async function getTaskReminderSummary(ownerUserId: string, limit = 5): Promise<TaskReminderSummary> {
+  const tasks = await getTasksForOwner(ownerUserId, 120)
+  const now = new Date()
+  const todayStart = new Date(now)
+  todayStart.setUTCHours(0, 0, 0, 0)
+  const tomorrowStart = new Date(todayStart)
+  tomorrowStart.setUTCDate(tomorrowStart.getUTCDate() + 1)
+
+  const overdue = tasks.filter((task) => {
+    const dueDate = taskDueDate(task)
+    return dueDate ? dueDate.getTime() < now.getTime() : false
+  }).length
+
+  const due_today = tasks.filter((task) => {
+    const dueDate = taskDueDate(task)
+    return dueDate ? dueDate >= todayStart && dueDate < tomorrowStart : false
+  }).length
+
+  const upcoming = tasks.filter((task) => {
+    const dueDate = taskDueDate(task)
+    return dueDate ? dueDate >= tomorrowStart : false
+  }).length
+
+  return {
+    overdue,
+    due_today,
+    upcoming,
+    total_open: tasks.length,
+    items: tasks.slice(0, limit),
+  }
+}
+
 export async function getTasksByLead(leadId: string, limit = 20): Promise<TaskRow[]> {
   const supabase = await createClient()
   const { data } = await supabase
