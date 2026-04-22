@@ -2784,6 +2784,11 @@ body.builder-mode .constructor-board-stage {
 }
 
 @media (max-width: 1280px) {
+  .account-workspace.is-open,
+  .deal-workspace.is-open {
+    grid-template-columns: 1fr;
+  }
+
   .compact-form-grid,
   .inline-deal-panel .form-grid,
   .inline-deal-panel .compact-form-grid {
@@ -2804,8 +2809,18 @@ body.builder-mode .constructor-board-stage {
   gap: 16px;
 }
 
+.account-workspace {
+  display: grid;
+  gap: 16px;
+}
+
 .deal-workspace.is-open {
   grid-template-columns: minmax(0, 1.45fr) minmax(360px, 0.8fr);
+  align-items: start;
+}
+
+.account-workspace.is-open {
+  grid-template-columns: minmax(0, 1.25fr) minmax(380px, 0.85fr);
   align-items: start;
 }
 
@@ -2826,6 +2841,58 @@ body.builder-mode .constructor-board-stage {
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.035);
   border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.deal-editor-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.deal-editor-head h2,
+.deal-editor-head h3 {
+  margin: 0;
+}
+
+.mini-list {
+  display: grid;
+  gap: 8px;
+}
+
+.mini-list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.mini-list-row--link:hover {
+  border-color: rgba(125, 211, 252, 0.45);
+}
+
+.compact-form-grid--account-status {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.compact-form-grid--account-contact {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.account-contact-notes {
+  grid-column: 1 / -1;
 }
 
 .deal-drawer-meta-grid {

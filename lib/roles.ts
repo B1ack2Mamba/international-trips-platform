@@ -88,6 +88,8 @@ export const ACTIVE_DASHBOARD_MODULE_KEYS = [
   'my_leads',
   'tasks',
   'deals',
+  'accounts',
+  'contracts',
   'scripts',
   'partners',
   'programs',
@@ -273,7 +275,7 @@ const DASHBOARD_MODULES: readonly DashboardModuleDefinition[] = [
     key: 'accounts',
     routePath: '/dashboard/accounts',
     href: '/dashboard/accounts',
-    label: 'Аккаунты',
+    label: 'Клиенты',
     description: 'Семьи, школы, партнёры и повторные продажи без дубликатов.',
     groupTitle: 'Продажи',
     roles: [...salesRoles, 'backoffice', 'finance'] as const,
@@ -409,7 +411,7 @@ export function isRoleAllowedForModule(role: string | null | undefined, key: Das
 
 const NAV_GROUP_BLUEPRINT = [
   { title: 'Командный мостик', keys: ['dashboard', 'reports', 'spaces'] },
-  { title: 'Продажи', keys: ['leads', 'my_leads', 'tasks', 'deals', 'scripts'] },
+  { title: 'Продажи', keys: ['leads', 'my_leads', 'tasks', 'deals', 'accounts', 'contracts', 'scripts'] },
   { title: 'Партнёры', keys: ['partners'] },
   { title: 'Продукт и выезды', keys: ['programs', 'departures', 'ops'] },
   { title: 'Финансы', keys: ['finance', 'controlling'] },

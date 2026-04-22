@@ -209,11 +209,28 @@ export type DealFlowSummary = {
 
 export type AccountRow = {
   id: string
+  owner_user_id?: string | null
   display_name: string
   account_type: string
   city: string | null
   country: string | null
+  website_url?: string | null
+  notes?: string | null
   status: string
+  created_at: string
+}
+
+export type AccountContactRow = {
+  id: string
+  account_id: string
+  first_name: string
+  last_name: string | null
+  role_label: string | null
+  phone: string | null
+  email: string | null
+  telegram_username: string | null
+  is_primary: boolean
+  notes: string | null
   created_at: string
 }
 
@@ -718,8 +735,45 @@ export async function getDealById(id: string): Promise<DealRow | null> {
 
 export async function getAccounts(limit = 20): Promise<AccountRow[]> {
   const supabase = await createClient()
-  const { data } = await supabase.from('accounts').select('id, display_name, account_type, city, country, status, created_at').order('created_at', { ascending: false }).limit(limit)
+  const { data } = await supabase.from('accounts').select('id, owner_user_id, display_name, account_type, city, country, website_url, notes, status, created_at').order('created_at', { ascending: false }).limit(limit)
   return asRows<AccountRow>(data)
+}
+
+export async function getAccountById(id: string): Promise<AccountRow | null> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('accounts')
+    .select('id, owner_user_id, display_name, account_type, city, country, website_url, notes, status, created_at')
+    .eq('id', id)
+    .maybeSingle()
+  return asRow<AccountRow>(data)
+}
+
+export async function getContactsByAccount(accountId: string, limit = 30): Promise<AccountContactRow[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('contacts')
+    .select('id, account_id, first_name, last_name, role_label, phone, email, telegram_username, is_primary, notes, created_at')
+    .eq('account_id', accountId)
+    .order('is_primary', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  return asRows<AccountContactRow>(data)
+}
+
+export async function getDealsByAccount(accountId: string, limit = 20): Promise<DealRow[]> {
+  const supabase = hasServiceRole() ? createAdminClient() : await createClient()
+  const { data } = await supabase
+    .from('deals')
+    .select(`id, owner_user_id, lead_id, account_id, program_id, departure_id, title, stage, estimated_value, currency, participants_count, close_date, notes, created_at,
+      lead:leads!deals_lead_id_fkey(id, contact_name_raw, phone_raw, email_raw, desired_country, source_channel, message),
+      account:accounts!deals_account_id_fkey(id, display_name, account_type),
+      program:programs(id, title, public_slug, segment),
+      departure:departures(id, departure_name, start_date, status)`)
+    .eq('account_id', accountId)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  return asRows<DealRow>(data).map(normalizeDealRow)
 }
 
 export async function getPartnerAccounts(limit = 50): Promise<AccountRow[]> {
