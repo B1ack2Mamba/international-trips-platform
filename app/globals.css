@@ -381,6 +381,7 @@ form {
   top: 92px;
   min-width: 0;
   align-self: start;
+  z-index: 18;
 }
 
 .dashboard-shell.is-collapsed .dashboard-sidebar-wrap {
@@ -388,9 +389,23 @@ form {
 }
 
 .dashboard-shell.is-collapsed .sidebar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 280px;
   opacity: 0;
   pointer-events: none;
   visibility: hidden;
+  transform: translateX(-14px);
+  transition: opacity 0.16s ease, transform 0.16s ease, visibility 0.16s ease;
+}
+
+.dashboard-shell.is-collapsed .dashboard-sidebar-wrap:hover .sidebar,
+.dashboard-shell.is-collapsed .dashboard-sidebar-wrap:focus-within .sidebar {
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
+  transform: translateX(0);
 }
 
 .dashboard-sidebar-toggle {
@@ -518,7 +533,7 @@ form {
   z-index: 40;
   display: grid;
   gap: 10px;
-  width: min(440px, calc(100vw - 28px));
+  width: min(580px, calc(100vw - 28px));
   padding: 12px;
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -539,13 +554,15 @@ form {
 }
 
 .workbar-notification-item {
-  display: grid;
-  gap: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.045);
   color: var(--text);
-  padding: 10px 11px;
+  padding: 12px;
   text-decoration: none;
 }
 
@@ -553,16 +570,57 @@ form {
   border-color: rgba(125, 211, 252, 0.45);
 }
 
-.workbar-notification-item span,
-.workbar-notification-item small {
+.workbar-notification-link {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.workbar-notification-link span {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.workbar-notification-link span,
+.workbar-notification-link small {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.workbar-notification-item small,
+.workbar-notification-link small,
 .workbar-notification-empty {
   color: var(--muted);
+}
+
+.workbar-notification-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.workbar-notification-actions form {
+  margin: 0;
+}
+
+.workbar-task-timer {
+  white-space: nowrap;
+  border-radius: 999px;
+  border: 1px solid rgba(77, 208, 225, 0.26);
+  background: rgba(77, 208, 225, 0.1);
+  color: #dffbff;
+  padding: 5px 9px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.workbar-task-timer.is-overdue {
+  border-color: rgba(255, 122, 122, 0.42);
+  background: rgba(255, 122, 122, 0.14);
+  color: #ffd1d1;
 }
 
 .workbar-reminder-meta {
@@ -3663,6 +3721,16 @@ body.builder-mode .constructor-board-stage {
   .workbar-notifications-panel {
     left: 0;
     right: auto;
+    width: 100%;
+  }
+
+  .workbar-notification-item,
+  .workbar-notification-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .workbar-notification-actions .button-secondary {
     width: 100%;
   }
 

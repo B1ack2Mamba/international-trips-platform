@@ -19,6 +19,7 @@ function refreshTaskPaths() {
 function taskReturnPath(formData: FormData) {
   const returnPath = value(formData, 'return_path')
   if (returnPath.startsWith('/dashboard/my-leads')) return returnPath
+  if (returnPath === '/dashboard') return returnPath
   return '/dashboard/tasks'
 }
 
