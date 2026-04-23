@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { requireAbility } from '@/lib/auth'
+import { closeDealAutomationTasks, scheduleDealApplicationTask, scheduleDealContractTask, scheduleDealPaymentTask } from '@/lib/deal-automation'
 import { hasServiceRole } from '@/lib/env'
 import { createAdminClient } from '@/lib/supabase/admin'
 
@@ -104,31 +105,13 @@ async function ensurePaymentAndContractRequest(
     })
   }
 
-  const existingTask = await writer
-    .from('tasks')
-    .select('id')
-    .eq('deal_id', payload.dealId)
-    .eq('title', 'Составить договор')
-    .in('status', ['todo', 'doing'])
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (!existingTask.data?.id) {
-    await writer.from('tasks').insert({
-      owner_user_id: payload.ownerUserId,
-      lead_id: payload.leadId,
-      deal_id: payload.dealId,
-      title: 'Составить договор',
-      description: `Подготовить договор по сделке «${payload.title}».`,
-      status: 'todo',
-      priority: 'high',
-      metadata: {
-        autocreated_from_deal: true,
-        request_kind: 'contract_draft',
-      },
-    })
-  }
+  await scheduleDealContractTask({
+    supabase: writer,
+    dealId: payload.dealId,
+    leadId: payload.leadId,
+    ownerUserId: payload.ownerUserId,
+    dealTitle: payload.title,
+  })
 }
 
 async function createApplicationFromDealBestEffort(
@@ -338,6 +321,11 @@ export async function createApplicationFromDealAction(formData: FormData) {
   const reader = hasServiceRole() ? createAdminClient() : supabase
   const { data: application } = await reader.from('applications').select('id, departure_id').eq('id', result.applicationId).maybeSingle()
   await supabase.from('deals').update({ stage: 'won' }).eq('id', dealId)
+  await closeDealAutomationTasks({
+    supabase,
+    dealId,
+    automationKeys: ['deal_prepare_contract', 'deal_collect_payment', 'deal_create_application'],
+  })
   refreshDealPaths(dealId, application?.id, application?.departure_id)
   redirect(`/dashboard/applications?deal_id=${encodeURIComponent(dealId)}&created=${encodeURIComponent(result.applicationId)}&from=deal&mode=${encodeURIComponent(result.mode)}`)
 }
@@ -402,6 +390,11 @@ export async function quickCreateApplicationFromDealAction(formData: FormData) {
 
   const { data: application } = await reader.from('applications').select('id, departure_id').eq('id', result.applicationId).maybeSingle()
   await supabase.from('deals').update({ stage: 'won' }).eq('id', dealId)
+  await closeDealAutomationTasks({
+    supabase,
+    dealId,
+    automationKeys: ['deal_prepare_contract', 'deal_collect_payment', 'deal_create_application'],
+  })
   refreshDealPaths(dealId, application?.id, application?.departure_id)
   redirect(`/dashboard/applications?deal_id=${encodeURIComponent(dealId)}&created=${encodeURIComponent(result.applicationId)}&from=deal&mode=${encodeURIComponent(result.mode)}`)
 }
@@ -492,6 +485,11 @@ export async function completeDealPaymentAndMoveAction(formData: FormData) {
 
   const { data: application } = await reader.from('applications').select('id, departure_id').eq('id', result.applicationId).maybeSingle()
   await supabase.from('deals').update({ stage: 'won' }).eq('id', dealId)
+  await closeDealAutomationTasks({
+    supabase,
+    dealId,
+    automationKeys: ['deal_prepare_contract', 'deal_collect_payment', 'deal_create_application'],
+  })
   refreshDealPaths(dealId, application?.id, application?.departure_id)
   redirect(`/dashboard/applications?deal_id=${encodeURIComponent(dealId)}&created=${encodeURIComponent(result.applicationId)}&from=deal&paid=1`)
 }
@@ -545,6 +543,27 @@ export async function updateDealPaymentProgressAction(formData: FormData) {
       status: nextStatus,
     },
   })
+  if (nextStatus === 'paid') {
+    await closeDealAutomationTasks({
+      supabase,
+      dealId,
+      automationKeys: ['deal_collect_payment'],
+    })
+    await scheduleDealApplicationTask({
+      supabase,
+      actorUserId: user?.id ?? null,
+      dealId,
+      ownerUserId: user?.id ?? null,
+    })
+  } else if (nextStatus === 'partial') {
+    await scheduleDealPaymentTask({
+      supabase,
+      actorUserId: user?.id ?? null,
+      dealId,
+      ownerUserId: user?.id ?? null,
+      amount: totalAmount - paidAmount,
+    })
+  }
 
   refreshDealPaths(dealId)
   redirect(`/dashboard/deals?open=${encodeURIComponent(dealId)}&pay=1#deal-payment-popover`)

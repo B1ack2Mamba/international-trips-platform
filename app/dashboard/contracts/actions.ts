@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { requireAbility } from '@/lib/auth'
+import { closeDealAutomationTasks, scheduleDealPaymentTask } from '@/lib/deal-automation'
 
 function value(formData: FormData, key: string) {
   return String(formData.get(key) ?? '').trim()
@@ -17,6 +18,7 @@ function refreshContractPaths(contractId?: string, applicationId?: string) {
   revalidatePath('/dashboard')
   revalidatePath('/dashboard/contracts')
   revalidatePath('/dashboard/applications')
+  revalidatePath('/dashboard/deals')
   if (contractId) revalidatePath(`/dashboard/contracts/${contractId}`)
   if (applicationId) revalidatePath(`/dashboard/applications/${applicationId}`)
 }
@@ -79,20 +81,57 @@ export async function createContractForDealAction(formData: FormData) {
     redirect(`/dashboard/contracts?deal_id=${encodeURIComponent(dealId)}&error=${encodeURIComponent(error?.message ?? 'Не удалось создать договор')}`)
   }
 
+  await closeDealAutomationTasks({
+    supabase,
+    dealId,
+    automationKeys: ['deal_prepare_contract'],
+  })
+
   refreshContractPaths(String(contractId), applicationId)
   redirect(`/dashboard/contracts/${contractId}`)
 }
 
 export async function updateContractStatusAction(formData: FormData) {
-  const { supabase } = await requireAbility('/dashboard/contracts', 'contract.status_update')
+  const { supabase, user } = await requireAbility('/dashboard/contracts', 'contract.status_update')
   const contractId = value(formData, 'contract_id')
   const applicationId = optionalValue(formData, 'application_id')
+  const status = value(formData, 'status')
   await supabase.rpc('mark_contract_status', {
     p_contract_id: contractId,
-    p_status: value(formData, 'status'),
+    p_status: status,
     p_note: optionalValue(formData, 'note'),
     p_signatory_name: optionalValue(formData, 'signatory_name'),
     p_signatory_email: optionalValue(formData, 'signatory_email'),
   })
+
+  if (status === 'signed') {
+    const { data: contract } = await supabase
+      .from('contracts')
+      .select(`deal_id, deal:deals!contracts_deal_id_fkey(id, owner_user_id, lead_id, estimated_value, currency)`)
+      .eq('id', contractId)
+      .maybeSingle<{
+        deal_id: string | null
+        deal: { id: string; owner_user_id: string | null; lead_id: string | null; estimated_value: number | null; currency: string | null } | null
+      }>()
+
+    const deal = Array.isArray(contract?.deal) ? (contract?.deal[0] ?? null) : contract?.deal
+    if (contract?.deal_id) {
+      await closeDealAutomationTasks({
+        supabase,
+        dealId: contract.deal_id,
+        automationKeys: ['deal_prepare_contract'],
+      })
+      await scheduleDealPaymentTask({
+        supabase,
+        actorUserId: user?.id ?? null,
+        dealId: contract.deal_id,
+        leadId: deal?.lead_id ?? null,
+        ownerUserId: deal?.owner_user_id ?? user?.id ?? null,
+        amount: Number(deal?.estimated_value ?? 0),
+        currency: deal?.currency ?? 'RUB',
+      })
+    }
+  }
+
   refreshContractPaths(contractId, applicationId || undefined)
 }
