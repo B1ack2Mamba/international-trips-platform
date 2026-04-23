@@ -422,6 +422,26 @@ export async function completeDealPaymentAndMoveAction(formData: FormData) {
   }
 
   const amount = Number(deal.estimated_value ?? 0)
+  if (!Number.isFinite(amount) || amount <= 0) {
+    redirect(`/dashboard/deals?open=${encodeURIComponent(dealId)}&pay=1&error=${encodeURIComponent('Перед переводом в участники укажите сумму сделки')}`)
+  }
+
+  const { data: contract } = await reader
+    .from('contracts')
+    .select('id, status, signed_at')
+    .eq('deal_id', dealId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle<{ id: string; status: string | null; signed_at: string | null }>()
+
+  if (!contract?.id) {
+    redirect(`/dashboard/deals?open=${encodeURIComponent(dealId)}&pay=1&error=${encodeURIComponent('Сначала создайте договор по сделке')}`)
+  }
+
+  if (contract.status !== 'signed') {
+    redirect(`/dashboard/deals?open=${encodeURIComponent(dealId)}&pay=1&error=${encodeURIComponent('Сначала подпишите договор, затем переводите клиента в участники')}`)
+  }
+
   const { data: payments } = await reader
     .from('payments')
     .select('id, amount, metadata')

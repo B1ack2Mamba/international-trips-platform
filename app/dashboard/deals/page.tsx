@@ -81,6 +81,8 @@ export default async function DealsPage({
   const openFlow = openDeal ? flowByDealId[openDeal.id] : undefined
   const openPaymentState = openDeal ? dealPaymentState(openFlow, Number(openDeal.estimated_value ?? 0)) : null
   const openNextStep = openDeal ? dealNextStep(openFlow, Number(openDeal.estimated_value ?? 0), openDeal.currency || 'RUB') : null
+  const openContractSigned = openFlow?.contract_status === 'signed'
+  const openCanMoveToApplication = Boolean(openContractSigned && openPaymentState?.amount && !openFlow?.application_id)
   const matchingDepartures = openDeal?.program_id
     ? departures.filter((departure) => departure.program_id === openDeal.program_id || departure.id === openDeal.departure_id)
     : departures
@@ -460,9 +462,20 @@ export default async function DealsPage({
               {payMode ? (
                 <div id="deal-payment-popover" className="lead-inline-form">
                   <h3 style={{ margin: 0 }}>Оплата по сделке</h3>
-                  {flowByDealId[openDeal.id]?.contract_status !== 'signed' ? (
-                    <div className="notice">Договор ещё не подписан. Оплату можно подготовить, но финальный перевод в участников делайте после подписания договора.</div>
-                  ) : null}
+                  <div className="deal-blocker-list">
+                    <div className={openFlow?.contract_id ? 'is-done' : 'is-blocked'}>
+                      <strong>Договор</strong>
+                      <span>{openFlow?.contract_id ? 'создан' : 'сначала создайте договор'}</span>
+                    </div>
+                    <div className={openContractSigned ? 'is-done' : 'is-blocked'}>
+                      <strong>Подпись</strong>
+                      <span>{openContractSigned ? 'договор подписан' : 'перевод в участники заблокирован'}</span>
+                    </div>
+                    <div className={openPaymentState?.amount ? 'is-done' : 'is-blocked'}>
+                      <strong>Сумма</strong>
+                      <span>{openPaymentState?.amount ? formatCurrency(openPaymentState.amount, openDeal.currency) : 'укажите сумму сделки'}</span>
+                    </div>
+                  </div>
                   <div className="badge-row">
                     <span className={`badge ${flowByDealId[openDeal.id]?.payment_amount && flowByDealId[openDeal.id].payment_paid_amount >= flowByDealId[openDeal.id].payment_amount ? 'success' : ''}`}>
                       {flowByDealId[openDeal.id]?.payment_amount && flowByDealId[openDeal.id].payment_paid_amount >= flowByDealId[openDeal.id].payment_amount ? 'Оплачено' : flowByDealId[openDeal.id]?.payment_paid_amount ? 'Частично оплачено' : 'Ожидает оплаты'}
@@ -484,10 +497,14 @@ export default async function DealsPage({
                       <div className="form-actions"><button className="button-secondary">Частично оплачено</button></div>
                     </form>
                   ) : <div className="notice">Платёж появится после сохранения суммы сделки. Если суммы ещё нет, укажите её в редакции выше.</div>}
-                  <form action={completeDealPaymentAndMoveAction}>
-                    <input type="hidden" name="deal_id" value={openDeal.id} />
-                    <div className="form-actions"><button className="button">Оплачено полностью</button></div>
-                  </form>
+                  {openCanMoveToApplication ? (
+                    <form action={completeDealPaymentAndMoveAction}>
+                      <input type="hidden" name="deal_id" value={openDeal.id} />
+                      <div className="form-actions"><button className="button">Оплачено полностью и создать участника</button></div>
+                    </form>
+                  ) : (
+                    <div className="notice">Кнопка полного перевода появится после подписанного договора и указанной суммы сделки.</div>
+                  )}
                 </div>
               ) : null}
             </div>
