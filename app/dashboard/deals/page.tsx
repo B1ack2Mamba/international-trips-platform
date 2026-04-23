@@ -34,6 +34,15 @@ function dealNextStep(flow: Awaited<ReturnType<typeof getDealFlowSummaries>>[str
   return { tone: 'success', title: 'Готово к выезду', text: 'Клиент уже переведён в участники.' }
 }
 
+function dealBottleneckKey(flow: Awaited<ReturnType<typeof getDealFlowSummaries>>[string] | undefined, fallbackAmount = 0) {
+  const payment = dealPaymentState(flow, fallbackAmount)
+  if (!flow?.contract_id) return 'contract'
+  if (flow.contract_status !== 'signed') return 'signature'
+  if (!payment.isPaid) return payment.isPartial ? 'remainder' : 'payment'
+  if (!flow.application_id) return 'application'
+  return 'done'
+}
+
 export default async function DealsPage({
   searchParams,
 }: {
@@ -61,6 +70,14 @@ export default async function DealsPage({
 
   const visibleDeals = createdDeal && !deals.some((deal) => deal.id === createdDeal.id) ? [createdDeal, ...deals] : deals
   const flowByDealId = await getDealFlowSummaries(visibleDeals.map((deal) => deal.id))
+  const bottleneckGroups = {
+    contract: visibleDeals.filter((deal) => dealBottleneckKey(flowByDealId[deal.id], Number(deal.estimated_value ?? 0)) === 'contract'),
+    signature: visibleDeals.filter((deal) => dealBottleneckKey(flowByDealId[deal.id], Number(deal.estimated_value ?? 0)) === 'signature'),
+    payment: visibleDeals.filter((deal) => dealBottleneckKey(flowByDealId[deal.id], Number(deal.estimated_value ?? 0)) === 'payment'),
+    remainder: visibleDeals.filter((deal) => dealBottleneckKey(flowByDealId[deal.id], Number(deal.estimated_value ?? 0)) === 'remainder'),
+    application: visibleDeals.filter((deal) => dealBottleneckKey(flowByDealId[deal.id], Number(deal.estimated_value ?? 0)) === 'application'),
+    done: visibleDeals.filter((deal) => dealBottleneckKey(flowByDealId[deal.id], Number(deal.estimated_value ?? 0)) === 'done'),
+  }
   const openFlow = openDeal ? flowByDealId[openDeal.id] : undefined
   const openPaymentState = openDeal ? dealPaymentState(openFlow, Number(openDeal.estimated_value ?? 0)) : null
   const openNextStep = openDeal ? dealNextStep(openFlow, Number(openDeal.estimated_value ?? 0), openDeal.currency || 'RUB') : null
@@ -144,6 +161,43 @@ export default async function DealsPage({
         <article className="card stack"><div className="micro">На активных стадиях</div><div className="kpi-value">{visibleDeals.filter((deal) => ['qualified', 'proposal', 'negotiation'].includes(deal.stage)).length}</div></article>
         <article className="card stack"><div className="micro">Сумма по активным сделкам</div><div className="kpi-value">{formatCurrency(visibleDeals.reduce((sum, deal) => sum + Number(deal.estimated_value ?? 0), 0), 'RUB')}</div></article>
       </section>
+
+      <article className="card stack">
+        <div className="section-mini-head">
+          <div>
+            <h2>Узкие места</h2>
+            <div className="micro">Операционный срез по сделкам: что мешает перевести клиента дальше.</div>
+          </div>
+          <span className="badge">В работе: {visibleDeals.length - bottleneckGroups.done.length}</span>
+        </div>
+        <div className="deal-bottleneck-grid">
+          {[
+            { key: 'contract', title: 'Нужен договор', tone: 'danger', deals: bottleneckGroups.contract },
+            { key: 'signature', title: 'Ждём подпись', tone: 'warning', deals: bottleneckGroups.signature },
+            { key: 'payment', title: 'Ждём оплату', tone: 'danger', deals: bottleneckGroups.payment },
+            { key: 'remainder', title: 'Доплата', tone: 'warning', deals: bottleneckGroups.remainder },
+            { key: 'application', title: 'Создать участника', tone: 'warning', deals: bottleneckGroups.application },
+            { key: 'done', title: 'Готово', tone: 'success', deals: bottleneckGroups.done },
+          ].map((group) => (
+            <div key={group.key} className={`deal-bottleneck-card deal-bottleneck-card--${group.tone}`}>
+              <div className="deal-bottleneck-card__head">
+                <span>{group.title}</span>
+                <strong>{group.deals.length}</strong>
+              </div>
+              <div className="deal-bottleneck-list">
+                {group.deals.slice(0, 3).map((deal) => (
+                  <Link key={deal.id} href={`/dashboard/deals?open=${deal.id}#deal-editor`}>
+                    <span>{deal.title}</span>
+                    <small>{deal.lead?.contact_name_raw || deal.account?.display_name || formatCurrency(deal.estimated_value, deal.currency || 'RUB')}</small>
+                  </Link>
+                ))}
+                {group.deals.length > 3 ? <div className="micro">+ ещё {group.deals.length - 3}</div> : null}
+                {!group.deals.length ? <div className="micro">Нет сделок</div> : null}
+              </div>
+            </div>
+          ))}
+        </div>
+      </article>
 
       <article className="card stack">
         <div className="section-head" style={{ marginBottom: 0 }}>

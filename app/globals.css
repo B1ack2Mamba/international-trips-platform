@@ -3184,6 +3184,80 @@ body.builder-mode .constructor-board-stage {
   background: rgba(248, 113, 113, 0.07);
 }
 
+.deal-bottleneck-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(150px, 1fr));
+  gap: 10px;
+  overflow-x: auto;
+}
+
+.deal-bottleneck-card {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 150px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 11px;
+}
+
+.deal-bottleneck-card--success {
+  border-color: rgba(52, 211, 153, 0.22);
+  background: rgba(52, 211, 153, 0.07);
+}
+
+.deal-bottleneck-card--warning {
+  border-color: rgba(250, 204, 21, 0.22);
+  background: rgba(250, 204, 21, 0.07);
+}
+
+.deal-bottleneck-card--danger {
+  border-color: rgba(248, 113, 113, 0.2);
+  background: rgba(248, 113, 113, 0.06);
+}
+
+.deal-bottleneck-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.deal-bottleneck-card__head span {
+  font-weight: 800;
+}
+
+.deal-bottleneck-card__head strong {
+  font-size: 1.3rem;
+}
+
+.deal-bottleneck-list {
+  display: grid;
+  gap: 6px;
+}
+
+.deal-bottleneck-list a {
+  display: grid;
+  gap: 2px;
+  color: var(--text);
+  text-decoration: none;
+  border-radius: 8px;
+  padding: 7px 8px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.deal-bottleneck-list span,
+.deal-bottleneck-list small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.deal-bottleneck-list small {
+  color: var(--muted);
+}
+
 .micro-inline {
   color: var(--muted);
 }
