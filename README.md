@@ -52,3 +52,4 @@ Lead communication automation:
 - Taking a lead creates a first-contact task due in 2 hours.
 - Sending a message creates a follow-up task due in 24 hours.
 - Receiving an inbound reply creates a high-priority reply task due in 1 hour.
+- Marking an inbound reply as handled closes the open reply automation task.

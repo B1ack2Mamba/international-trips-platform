@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { generateLeadScriptAction, queueLeadManualMessageAction, recordLeadIncomingMessageAction, updateLeadPersonalInfoAction } from '@/app/dashboard/leads/actions'
+import { generateLeadScriptAction, markLeadIncomingMessageHandledAction, queueLeadManualMessageAction, recordLeadIncomingMessageAction, updateLeadPersonalInfoAction } from '@/app/dashboard/leads/actions'
 import { formatCurrency, formatDateTime } from '@/lib/format'
 import { label } from '@/lib/labels'
 import type { LeadAssignableProfile } from '@/lib/lead-access'
@@ -34,6 +34,9 @@ export function LeadWorkspaceDrawer({
   const paidAmount = dealFlow?.payment_paid_amount ?? 0
   const totalAmount = dealFlow?.payment_amount ?? 0
   const paymentProgress = totalAmount > 0 ? Math.min(100, Math.round((paidAmount / totalAmount) * 100)) : 0
+  const openInboundCount = communications.filter((message) => message.direction === 'inbound' && message.status !== 'handled').length
+  const outboundWaitingCount = communications.filter((message) => message.direction === 'outbound' && ['queued', 'processing', 'sent'].includes(message.status || '')).length
+  const latestCommunication = communications[0] ?? null
 
   return (
     <aside className="card stack deal-editor-drawer lead-scripts-drawer" id="lead-editor">
@@ -126,17 +129,34 @@ export function LeadWorkspaceDrawer({
       </div>
 
       <div id="lead-communications" className="lead-inline-form lead-communications-form">
-        <div>
-          <h3 style={{ margin: 0 }}>Связь с клиентом</h3>
-          <div className="micro">Единая лента входящих и исходящих сообщений по клиенту.</div>
+        <div className="lead-communications-head">
+          <div>
+            <h3 style={{ margin: 0 }}>Связь с клиентом</h3>
+            <div className="micro">Единая лента входящих и исходящих сообщений по клиенту.</div>
+          </div>
+          <div className="compact-badges">
+            <span className={`badge ${openInboundCount ? 'danger' : 'success'}`}>Ответить: {openInboundCount}</span>
+            <span className="badge">Ожидаем: {outboundWaitingCount}</span>
+          </div>
         </div>
+        {latestCommunication ? (
+          <div className="lead-communication-summary">
+            <span>{latestCommunication.direction === 'inbound' ? 'Последнее входящее' : 'Последнее исходящее'}</span>
+            <strong>{formatDateTime(latestCommunication.occurred_at)}</strong>
+          </div>
+        ) : null}
         {communications.length ? (
           <div className="lead-communication-timeline">
             {communications.map((message) => (
               <div key={`${message.direction}-${message.id}`} className={`lead-communication-item lead-communication-item--${message.direction}`}>
                 <div className="lead-communication-item__head">
                   <span className="badge">{message.direction === 'inbound' ? 'Входящее' : 'Исходящее'}</span>
-                  <span className="micro">{message.channel}{message.status ? ` · ${label('outboxStatus', message.status)}` : ''}</span>
+                  <span className="micro">
+                    {message.channel}
+                    {message.direction === 'outbound' && message.status ? ` · ${label('outboxStatus', message.status)}` : ''}
+                    {message.direction === 'inbound' && message.status === 'handled' ? ' · отработано' : ''}
+                    {message.direction === 'inbound' && message.status !== 'handled' ? ' · требует ответа' : ''}
+                  </span>
                   <span className="micro">{formatDateTime(message.occurred_at)}</span>
                 </div>
                 <div className="lead-communication-item__contact">
@@ -144,6 +164,13 @@ export function LeadWorkspaceDrawer({
                 </div>
                 {message.subject ? <strong>{message.subject}</strong> : null}
                 <div className="lead-communication-item__body">{message.body}</div>
+                {message.direction === 'inbound' && message.status !== 'handled' ? (
+                  <form action={markLeadIncomingMessageHandledAction} className="form-actions">
+                    <input type="hidden" name="lead_id" value={lead.id} />
+                    <input type="hidden" name="message_id" value={message.id} />
+                    <button className="button-secondary">Отработано</button>
+                  </form>
+                ) : null}
               </div>
             ))}
           </div>

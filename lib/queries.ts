@@ -1193,7 +1193,7 @@ export async function getLeadCommunications(leadId: string, limit = 30): Promise
   const [inboxRes, outboxRes] = await Promise.all([
     supabase
       .from('message_inbox')
-      .select('id, channel, sender_name, sender_email, sender_phone, subject, body, provider, external_message_id, received_at, metadata')
+      .select('id, channel, sender_name, sender_email, sender_phone, subject, body, status, provider, external_message_id, received_at, metadata')
       .eq('lead_id', leadId)
       .order('received_at', { ascending: false })
       .limit(limit),
@@ -1213,6 +1213,7 @@ export async function getLeadCommunications(leadId: string, limit = 30): Promise
     sender_phone: string | null
     subject: string | null
     body: string
+    status: string | null
     provider: string | null
     external_message_id: string | null
     received_at: string
@@ -1221,7 +1222,7 @@ export async function getLeadCommunications(leadId: string, limit = 30): Promise
     id: message.id,
     direction: 'inbound' as const,
     channel: message.channel,
-    status: null,
+    status: message.status,
     subject: message.subject,
     body: message.body,
     contact_name: message.sender_name,

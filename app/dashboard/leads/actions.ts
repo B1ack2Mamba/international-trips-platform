@@ -297,6 +297,58 @@ export async function recordLeadIncomingMessageAction(formData: FormData) {
   redirect(`/dashboard/my-leads?open=${encodeURIComponent(leadId)}#lead-communications`)
 }
 
+export async function markLeadIncomingMessageHandledAction(formData: FormData) {
+  const { supabase, user, profile } = await requireAbility('/dashboard/leads', 'lead.update')
+  const leadId = value(formData, 'lead_id')
+  const messageId = value(formData, 'message_id')
+  if (!leadId || !messageId) return
+
+  const canManageAnyLead = ['owner', 'admin', 'sales_head', 'sales_manager'].includes(profile?.role ?? '')
+  const { data: lead } = await supabase
+    .from('leads')
+    .select('owner_user_id')
+    .eq('id', leadId)
+    .maybeSingle<{ owner_user_id: string | null }>()
+
+  if (lead?.owner_user_id && lead.owner_user_id !== user!.id && !canManageAnyLead) {
+    redirect(`/dashboard/my-leads?error=${encodeURIComponent('Отмечать входящие можно только по своему клиенту')}`)
+  }
+
+  const handledAt = new Date().toISOString()
+  const { error } = await supabase
+    .from('message_inbox')
+    .update({
+      status: 'handled',
+      handled_at: handledAt,
+      handled_by: user!.id,
+    })
+    .eq('id', messageId)
+    .eq('lead_id', leadId)
+
+  if (error) redirect(`/dashboard/my-leads?open=${encodeURIComponent(leadId)}&error=${encodeURIComponent(error.message)}`)
+
+  await supabase
+    .from('tasks')
+    .update({ status: 'done' })
+    .eq('lead_id', leadId)
+    .in('status', ['todo', 'doing'])
+    .contains('metadata', { automation_key: 'lead_inbound_reply' })
+
+  await supabase.from('activity_log').insert({
+    actor_user_id: user!.id,
+    entity_type: 'lead',
+    entity_id: leadId,
+    event_type: 'lead_inbound_message_handled',
+    title: 'Входящее сообщение отработано',
+    body: 'Менеджер отметил ответ клиента как обработанный.',
+    metadata: { message_inbox_id: messageId, handled_at: handledAt },
+  })
+
+  refreshLeadPaths(leadId)
+  revalidatePath('/dashboard/tasks')
+  redirect(`/dashboard/my-leads?open=${encodeURIComponent(leadId)}#lead-communications`)
+}
+
 export async function convertLeadToDeal(formData: FormData) {
   const { supabase } = await requireAbility('/dashboard/leads', 'lead.convert')
   const leadId = value(formData, 'lead_id')
