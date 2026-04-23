@@ -1018,6 +1018,23 @@ export async function getTasksForOwner(ownerUserId: string, limit = 100): Promis
   return asRows<TaskRow>(data)
 }
 
+export async function getOpenTasksForSla(limit = 240): Promise<TaskRow[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('tasks')
+    .select(`id, owner_user_id, lead_id, deal_id, application_id, title, description, status, due_date, priority, created_at,
+      owner:profiles(id, full_name, email),
+      lead:leads(id, contact_name_raw, phone_raw, email_raw),
+      deal:deals(id, title, stage),
+      application:applications(id, participant_name)`)
+    .in('status', ['todo', 'doing'])
+    .order('due_date', { ascending: true, nullsFirst: false })
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  return asRows<TaskRow & { owner?: MiniProfile }>(data)
+}
+
 export type TaskReminderSummary = {
   overdue: number
   due_today: number

@@ -3,7 +3,7 @@ import { createGeneralTaskAction, updateTaskStatusAction } from './actions'
 import { requireDashboardAccess } from '@/lib/auth'
 import { formatDateTime } from '@/lib/format'
 import { label } from '@/lib/labels'
-import { getTasksForOwner, type TaskRow } from '@/lib/queries'
+import { getOpenTasksForSla, getTasksForOwner, type TaskRow } from '@/lib/queries'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,6 +36,26 @@ function taskBucket(task: TaskRow) {
   if (tone === 'warning') return 'today'
   if (task.due_date) return 'upcoming'
   return 'without_date'
+}
+
+function taskOwnerName(task: TaskRow & { owner?: { full_name?: string | null; email?: string | null } | null }) {
+  return task.owner?.full_name || task.owner?.email || 'Без ответственного'
+}
+
+function buildManagerLoad(tasks: Array<TaskRow & { owner?: { full_name?: string | null; email?: string | null } | null }>) {
+  const map = new Map<string, { label: string; total: number; overdue: number; today: number; critical: number }>()
+
+  for (const task of tasks) {
+    const key = task.owner_user_id || 'unassigned'
+    const row = map.get(key) ?? { label: taskOwnerName(task), total: 0, overdue: 0, today: 0, critical: 0 }
+    row.total += 1
+    if (taskBucket(task) === 'overdue') row.overdue += 1
+    if (taskBucket(task) === 'today') row.today += 1
+    if (task.priority === 'critical') row.critical += 1
+    map.set(key, row)
+  }
+
+  return [...map.values()].sort((a, b) => b.overdue - a.overdue || b.critical - a.critical || b.total - a.total)
 }
 
 function TaskStatusForm({ task, status, labelText }: { task: TaskRow; status: string; labelText: string }) {
@@ -106,7 +126,10 @@ export default async function TasksPage({
   const scope = typeof params.scope === 'string' ? params.scope : ''
   const status = typeof params.status === 'string' ? params.status : ''
 
-  const tasks = await getTasksForOwner(user!.id, 160)
+  const [tasks, slaTasks] = await Promise.all([
+    getTasksForOwner(user!.id, 160),
+    getOpenTasksForSla(240),
+  ])
   const filtered = tasks.filter((task) => {
     return (!priority || task.priority === priority)
       && (!scope || (scope === 'lead' ? Boolean(task.lead_id) : scope === 'deal' ? Boolean(task.deal_id) : scope === 'application' ? Boolean(task.application_id) : true))
@@ -120,6 +143,14 @@ export default async function TasksPage({
     upcoming: filtered.filter((task) => taskBucket(task) === 'upcoming'),
     without_date: filtered.filter((task) => taskBucket(task) === 'without_date'),
   }
+  const sla = {
+    overdue: slaTasks.filter((task) => taskBucket(task) === 'overdue'),
+    today: slaTasks.filter((task) => taskBucket(task) === 'today'),
+    withoutOwner: slaTasks.filter((task) => !task.owner_user_id),
+    withoutDate: slaTasks.filter((task) => !task.due_date),
+    critical: slaTasks.filter((task) => task.priority === 'critical'),
+  }
+  const managerLoad = buildManagerLoad(slaTasks)
 
   return (
     <div className="content-stack compact-page fullscreen-stretch tasks-page">
@@ -154,6 +185,50 @@ export default async function TasksPage({
           <label className="task-description-field">Описание<textarea name="description" placeholder="Контекст, что нужно сделать и какой следующий шаг" /></label>
           <div className="form-actions"><button className="button">Создать задачу</button></div>
         </form>
+      </article>
+
+      <article className="card stack">
+        <div className="section-mini-head">
+          <div>
+            <h2>SLA контроль</h2>
+            <div className="micro">Руководительский срез по открытым задачам команды: просрочки, критичные дела, задачи без владельца и без срока.</div>
+          </div>
+          <span className={`badge ${sla.overdue.length ? 'danger' : 'success'}`}>Просрочки команды: {sla.overdue.length}</span>
+        </div>
+        <div className="task-sla-grid">
+          <div className="task-sla-card task-sla-card--danger">
+            <span>Просрочено</span>
+            <strong>{sla.overdue.length}</strong>
+          </div>
+          <div className="task-sla-card task-sla-card--warning">
+            <span>Сегодня</span>
+            <strong>{sla.today.length}</strong>
+          </div>
+          <div className="task-sla-card task-sla-card--danger">
+            <span>Критичные</span>
+            <strong>{sla.critical.length}</strong>
+          </div>
+          <div className="task-sla-card">
+            <span>Без ответственного</span>
+            <strong>{sla.withoutOwner.length}</strong>
+          </div>
+          <div className="task-sla-card">
+            <span>Без срока</span>
+            <strong>{sla.withoutDate.length}</strong>
+          </div>
+        </div>
+        <div className="task-manager-load">
+          {managerLoad.slice(0, 8).map((manager) => (
+            <div key={manager.label} className="task-manager-load-row">
+              <div>
+                <strong>{manager.label}</strong>
+                <div className="micro">Открыто: {manager.total} · сегодня: {manager.today} · критично: {manager.critical}</div>
+              </div>
+              <span className={`badge ${manager.overdue ? 'danger' : 'success'}`}>Просрочено: {manager.overdue}</span>
+            </div>
+          ))}
+          {!managerLoad.length ? <div className="notice">Открытых задач команды нет.</div> : null}
+        </div>
       </article>
 
       <article className="card stack">
