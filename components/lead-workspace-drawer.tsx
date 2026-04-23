@@ -1,9 +1,9 @@
 import Link from 'next/link'
-import { generateLeadScriptAction, markLeadIncomingMessageHandledAction, queueLeadManualMessageAction, recordLeadIncomingMessageAction, updateLeadPersonalInfoAction } from '@/app/dashboard/leads/actions'
+import { generateLeadScriptAction, markLeadIncomingMessageHandledAction, queueLeadManualMessageAction, recordLeadIncomingMessageAction, requestLeadCallbackAction, updateLeadPersonalInfoAction } from '@/app/dashboard/leads/actions'
 import { formatCurrency, formatDateTime } from '@/lib/format'
 import { label } from '@/lib/labels'
 import type { LeadAssignableProfile } from '@/lib/lead-access'
-import type { ActivityRow, ContractRow, DealFlowSummary, DealRow, LeadCommunicationRow, LeadRow, PaymentRow, SalesScriptRow, TaskRow } from '@/lib/queries'
+import type { ActivityRow, CallLogRow, ContractRow, DealFlowSummary, DealRow, LeadCommunicationRow, LeadRow, PaymentRow, SalesScriptRow, TaskRow } from '@/lib/queries'
 
 export function LeadWorkspaceDrawer({
   lead,
@@ -15,6 +15,7 @@ export function LeadWorkspaceDrawer({
   payments = [],
   tasks = [],
   communications = [],
+  callLogs = [],
   scriptsMode = false,
   returnPath = '/dashboard/leads',
 }: {
@@ -27,6 +28,7 @@ export function LeadWorkspaceDrawer({
   payments?: PaymentRow[]
   tasks?: TaskRow[]
   communications?: LeadCommunicationRow[]
+  callLogs?: CallLogRow[]
   assignableProfiles: LeadAssignableProfile[]
   scriptsMode?: boolean
   returnPath?: string
@@ -37,6 +39,8 @@ export function LeadWorkspaceDrawer({
   const openInboundCount = communications.filter((message) => message.direction === 'inbound' && message.status !== 'handled').length
   const outboundWaitingCount = communications.filter((message) => message.direction === 'outbound' && ['queued', 'processing', 'sent'].includes(message.status || '')).length
   const latestCommunication = communications[0] ?? null
+  const missedCallCount = callLogs.filter((call) => call.status === 'missed').length
+  const latestCall = callLogs[0] ?? null
 
   return (
     <aside className="card stack deal-editor-drawer lead-scripts-drawer" id="lead-editor">
@@ -137,7 +141,21 @@ export function LeadWorkspaceDrawer({
           <div className="compact-badges">
             <span className={`badge ${openInboundCount ? 'danger' : 'success'}`}>Ответить: {openInboundCount}</span>
             <span className="badge">Ожидаем: {outboundWaitingCount}</span>
+            <span className={`badge ${missedCallCount ? 'danger' : ''}`}>Звонки: {callLogs.length}</span>
           </div>
+        </div>
+        <div className="lead-call-panel">
+          <div>
+            <strong>IP-телефония Exolve</strong>
+            <div className="micro">
+              {latestCall ? `Последний звонок: ${formatDateTime(latestCall.created_at)} · ${latestCall.status}` : 'Звонков по клиенту пока нет.'}
+            </div>
+          </div>
+          <form action={requestLeadCallbackAction} className="lead-call-form">
+            <input type="hidden" name="lead_id" value={lead.id} />
+            <input type="hidden" name="client_phone" value={lead.phone_raw || ''} />
+            <button className="button" disabled={!lead.phone_raw}>Позвонить</button>
+          </form>
         </div>
         {latestCommunication ? (
           <div className="lead-communication-summary">
@@ -177,6 +195,27 @@ export function LeadWorkspaceDrawer({
         ) : (
           <div className="notice">Переписки пока нет. Отправьте сообщение или добавьте входящий ответ клиента.</div>
         )}
+
+        {callLogs.length ? (
+          <details className="lead-communication-compose" open={missedCallCount > 0}>
+            <summary>История звонков</summary>
+            <div className="lead-call-list">
+              {callLogs.map((call) => (
+                <div key={call.id} className={`lead-call-item lead-call-item--${call.status}`}>
+                  <div>
+                    <strong>{call.status === 'missed' ? 'Пропущенный звонок' : call.direction === 'callback' ? 'Callback Exolve' : 'Звонок'}</strong>
+                    <div className="micro">{formatDateTime(call.started_at || call.created_at)} · {call.display_number ? `+${call.display_number}` : 'номер не определён'}</div>
+                  </div>
+                  <div className="compact-badges">
+                    <span className={`badge ${call.status === 'missed' || call.status === 'failed' ? 'danger' : call.status === 'completed' || call.status === 'answered' ? 'success' : ''}`}>{call.status}</span>
+                    {call.duration_seconds ? <span className="badge">{call.duration_seconds} сек.</span> : null}
+                    {call.recording_url ? <a className="button-secondary" href={call.recording_url} target="_blank" rel="noreferrer">Запись</a> : null}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </details>
+        ) : null}
 
         <details className="lead-communication-compose">
           <summary>Написать клиенту</summary>

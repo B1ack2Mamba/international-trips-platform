@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { requireAbility } from '@/lib/auth'
+import { getExolveManagerPhone, getExolveNumberCode } from '@/lib/env'
+import { normalizeExolvePhone, requestExolveCallback } from '@/lib/exolve'
 import { scheduleFirstTouchTask, scheduleInboundReplyTask, scheduleOutboundFollowupTask } from '@/lib/lead-automation'
 import { getLeadAssignableProfiles } from '@/lib/lead-access'
 
@@ -346,6 +348,96 @@ export async function markLeadIncomingMessageHandledAction(formData: FormData) {
 
   refreshLeadPaths(leadId)
   revalidatePath('/dashboard/tasks')
+  redirect(`/dashboard/my-leads?open=${encodeURIComponent(leadId)}#lead-communications`)
+}
+
+export async function requestLeadCallbackAction(formData: FormData) {
+  const { supabase, user, profile } = await requireAbility('/dashboard/leads', 'lead.update')
+  const leadId = value(formData, 'lead_id')
+  if (!leadId) return
+
+  const canManageAnyLead = ['owner', 'admin', 'sales_head', 'sales_manager'].includes(profile?.role ?? '')
+  const { data: lead } = await supabase
+    .from('leads')
+    .select('id, owner_user_id, contact_name_raw, phone_raw')
+    .eq('id', leadId)
+    .maybeSingle<{ id: string; owner_user_id: string | null; contact_name_raw: string | null; phone_raw: string | null }>()
+
+  if (!lead?.id) {
+    redirect(`/dashboard/my-leads?error=${encodeURIComponent('Клиент не найден')}`)
+  }
+  if (lead.owner_user_id && lead.owner_user_id !== user!.id && !canManageAnyLead) {
+    redirect(`/dashboard/my-leads?error=${encodeURIComponent('Звонить можно только своему клиенту')}`)
+  }
+
+  const clientPhone = normalizeExolvePhone(value(formData, 'client_phone') || lead.phone_raw)
+  const managerPhone = normalizeExolvePhone(value(formData, 'manager_phone')) ?? getExolveManagerPhone()
+  if (!clientPhone) {
+    redirect(`/dashboard/my-leads?open=${encodeURIComponent(leadId)}&error=${encodeURIComponent('У клиента нет телефона для звонка')}#lead-communications`)
+  }
+
+  const { data: callLog, error } = await supabase
+    .from('call_logs')
+    .insert({
+      lead_id: leadId,
+      owner_user_id: lead.owner_user_id ?? user!.id,
+      provider: 'exolve',
+      direction: 'callback',
+      status: 'initiated',
+      source_number: managerPhone,
+      destination_number: clientPhone,
+      display_number: clientPhone,
+      request_description: `Callback ${profile?.full_name || profile?.email || user!.id} -> ${lead.contact_name_raw || clientPhone}`,
+      started_at: new Date().toISOString(),
+      metadata: {
+        source: 'lead_card_click_to_call',
+        requested_by: user!.id,
+        exolve_number_code: getExolveNumberCode(),
+      },
+    })
+    .select('id')
+    .maybeSingle<{ id: string }>()
+
+  if (error || !callLog?.id) {
+    redirect(`/dashboard/my-leads?open=${encodeURIComponent(leadId)}&error=${encodeURIComponent(error?.message ?? 'Не удалось создать журнал звонка')}#lead-communications`)
+  }
+
+  const result = await requestExolveCallback({
+    clientPhone,
+    managerPhone,
+    requestId: callLog.id,
+  })
+
+  await supabase
+    .from('call_logs')
+    .update({
+      status: result.ok ? 'ringing' : 'failed',
+      provider_call_id: result.providerCallId ?? callLog.id,
+      provider_call_sid: result.providerCallSid ?? null,
+      last_error: result.error ?? null,
+      metadata: {
+        source: 'lead_card_click_to_call',
+        requested_by: user!.id,
+        exolve_response: result.payload ?? null,
+      },
+    })
+    .eq('id', callLog.id)
+
+  await supabase.from('activity_log').insert({
+    actor_user_id: user!.id,
+    entity_type: 'lead',
+    entity_id: leadId,
+    event_type: result.ok ? 'lead_callback_requested' : 'lead_callback_failed',
+    title: result.ok ? 'Запрошен звонок через Exolve' : 'Звонок через Exolve не запущен',
+    body: result.ok ? `CRM запросила звонок на +${clientPhone}.` : `Ошибка Exolve: ${result.error ?? 'неизвестная ошибка'}`,
+    metadata: { provider: 'exolve', call_log_id: callLog.id, response: result.payload ?? null },
+  })
+
+  refreshLeadPaths(leadId)
+  revalidatePath('/dashboard/communications')
+  if (!result.ok) {
+    redirect(`/dashboard/my-leads?open=${encodeURIComponent(leadId)}&error=${encodeURIComponent('Exolve не запустил звонок. Проверьте EXOLVE_API_KEY, EXOLVE_NUMBER_CODE, EXOLVE_CALLBACK_RESOURCE_ID и EXOLVE_MANAGER_PHONE.')}#lead-communications`)
+  }
   redirect(`/dashboard/my-leads?open=${encodeURIComponent(leadId)}#lead-communications`)
 }
 

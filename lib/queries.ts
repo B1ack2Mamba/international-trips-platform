@@ -419,6 +419,34 @@ export type LeadCommunicationRow = {
   metadata: JsonMap
 }
 
+export type CallLogRow = {
+  id: string
+  lead_id: string | null
+  deal_id: string | null
+  application_id: string | null
+  owner_user_id: string | null
+  provider: string
+  provider_call_id: string | null
+  provider_call_sid: string | null
+  direction: string
+  status: string
+  source_number: string | null
+  destination_number: string | null
+  display_number: string | null
+  request_description: string | null
+  started_at: string | null
+  answered_at: string | null
+  ended_at: string | null
+  duration_seconds: number | null
+  recording_url: string | null
+  recording_expires_at: string | null
+  recording_duration_seconds: number | null
+  last_error: string | null
+  metadata: JsonMap
+  created_at: string
+  lead?: { id: string; contact_name_raw: string | null; phone_raw: string | null; email_raw: string | null } | null
+}
+
 export type ApplicationDocumentRow = {
   id: string
   application_id: string
@@ -1284,6 +1312,30 @@ export async function getLeadCommunications(leadId: string, limit = 30): Promise
   return [...inbound, ...outbound]
     .sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime())
     .slice(0, limit)
+}
+
+export async function getCallLogsByLead(leadId: string, limit = 20): Promise<CallLogRow[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('call_logs')
+    .select('id, lead_id, deal_id, application_id, owner_user_id, provider, provider_call_id, provider_call_sid, direction, status, source_number, destination_number, display_number, request_description, started_at, answered_at, ended_at, duration_seconds, recording_url, recording_expires_at, recording_duration_seconds, last_error, metadata, created_at')
+    .eq('lead_id', leadId)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  return asRows<CallLogRow>(data)
+}
+
+export async function getRecentCallLogs(limit = 60): Promise<CallLogRow[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('call_logs')
+    .select(`id, lead_id, deal_id, application_id, owner_user_id, provider, provider_call_id, provider_call_sid, direction, status, source_number, destination_number, display_number, request_description, started_at, answered_at, ended_at, duration_seconds, recording_url, recording_expires_at, recording_duration_seconds, last_error, metadata, created_at,
+      lead:leads(id, contact_name_raw, phone_raw, email_raw)`)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  return asRows<CallLogRow>(data).map((row) => ({ ...row, lead: firstRelation(row.lead) }))
 }
 
 export async function getApplicationDocuments(applicationId: string, limit = 50): Promise<ApplicationDocumentRow[]> {

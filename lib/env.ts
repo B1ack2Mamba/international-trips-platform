@@ -69,6 +69,31 @@ export function getMessageInboundWebhookSecret() {
   return process.env.MESSAGE_INBOUND_WEBHOOK_TOKEN ?? null
 }
 
+export function getExolveApiKey() {
+  return process.env.EXOLVE_API_KEY ?? null
+}
+
+export function getExolveWebhookToken() {
+  return process.env.EXOLVE_WEBHOOK_TOKEN ?? null
+}
+
+export function getExolveNumberCode() {
+  const raw = process.env.EXOLVE_NUMBER_CODE ?? process.env.EXOLVE_PHONE_NUMBER ?? ''
+  const digits = raw.replace(/\D+/g, '')
+  return digits || null
+}
+
+export function getExolveCallbackResourceId() {
+  const raw = Number(process.env.EXOLVE_CALLBACK_RESOURCE_ID ?? 0)
+  return Number.isFinite(raw) && raw > 0 ? raw : null
+}
+
+export function getExolveManagerPhone() {
+  const raw = process.env.EXOLVE_MANAGER_PHONE ?? ''
+  const digits = raw.replace(/\D+/g, '')
+  return digits || null
+}
+
 export function isMessageDispatchDryRun() {
   return process.env.MESSAGE_DISPATCH_DRY_RUN === 'true'
 }

@@ -1,6 +1,8 @@
 import { getMessageDispatchWebhookUrl, isMessageDispatchDryRun } from '@/lib/env'
+import { getExolveConfigState } from '@/lib/exolve'
 import { formatDateTime } from '@/lib/format'
 import { label } from '@/lib/labels'
+import { getRecentCallLogs } from '@/lib/queries'
 import { createClient } from '@/lib/supabase/server'
 import { dispatchOutboxNowAction, markInboxHandledAction, queueApplicationTemplateAction, queueManualMessageAction, updateOutboxStatusAction } from './actions'
 
@@ -18,7 +20,7 @@ export default async function CommunicationsPage({
   const params = (await searchParams) ?? {}
   const statusFilter = typeof params.status === 'string' ? params.status : ''
   const supabase = await createClient()
-  const [templatesRes, outboxRes, inboxRes] = await Promise.all([
+  const [templatesRes, outboxRes, inboxRes, callLogs] = await Promise.all([
     supabase.from('message_templates').select('id, code, channel, audience, title, is_active, created_at').order('code', { ascending: true }),
     supabase
       .from('message_outbox')
@@ -30,6 +32,7 @@ export default async function CommunicationsPage({
       .select('id, lead_id, deal_id, application_id, channel, sender_name, sender_email, sender_phone, subject, body, status, provider, received_at, created_at, lead:leads(id, contact_name_raw, phone_raw, email_raw)')
       .order('created_at', { ascending: false })
       .limit(60),
+    getRecentCallLogs(60),
   ])
 
   const templates = templatesRes.data ?? []
@@ -42,6 +45,9 @@ export default async function CommunicationsPage({
   const inboxOpenCount = allInbox.filter((message) => message.status !== 'handled').length
   const inboxHandledCount = allInbox.filter((message) => message.status === 'handled').length
   const dispatcherMode = getDispatcherMode()
+  const exolveConfig = getExolveConfigState()
+  const missedCalls = callLogs.filter((call) => call.status === 'missed').length
+  const failedCalls = callLogs.filter((call) => call.status === 'failed').length
 
   return (
     <div className="content-stack">
@@ -59,6 +65,58 @@ export default async function CommunicationsPage({
         <article className="card kpi"><div className="kpi-label">Ошибки</div><div className="kpi-value">{failedCount}</div><div className="micro">требуют внимания</div></article>
         <article className="card kpi"><div className="kpi-label">Sent</div><div className="kpi-value">{sentCount}</div><div className="micro">в последних 60 записях</div></article>
       </section>
+
+      <article className="card stack">
+        <div className="section-mini-head">
+          <div>
+            <h2>IP-телефония Exolve</h2>
+            <div className="micro">Журнал входящих, callback-звонков, пропущенных звонков и записей разговоров.</div>
+          </div>
+          <div className="compact-badges">
+            <span className={`badge ${exolveConfig.hasApiKey && exolveConfig.hasNumberCode && exolveConfig.hasResourceId ? 'success' : 'danger'}`}>API: {exolveConfig.hasApiKey ? 'ключ есть' : 'нет ключа'}</span>
+            <span className={`badge ${missedCalls ? 'danger' : 'success'}`}>Пропущено: {missedCalls}</span>
+            <span className={`badge ${failedCalls ? 'danger' : ''}`}>Ошибки: {failedCalls}</span>
+          </div>
+        </div>
+        <div className="notice">Webhook для Exolve: `/api/exolve/call-events`. Если зададите `EXOLVE_WEBHOOK_TOKEN`, передавайте его как Bearer token, `x-exolve-token` или query `?token=...`.</div>
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Клиент</th>
+                <th>Звонок</th>
+                <th>Статус</th>
+                <th>Когда</th>
+                <th>Запись</th>
+              </tr>
+            </thead>
+            <tbody>
+              {callLogs.map((call) => {
+                const lead = Array.isArray(call.lead) ? (call.lead[0] ?? null) : call.lead
+                return (
+                  <tr key={call.id} className={call.status === 'missed' || call.status === 'failed' ? 'attention-row' : ''}>
+                    <td>
+                      <div>{lead?.contact_name_raw || call.display_number || 'Без клиента'}</div>
+                      <div className="micro">{lead?.phone_raw || (call.display_number ? `+${call.display_number}` : '—')}</div>
+                    </td>
+                    <td>
+                      <div>{call.direction === 'callback' ? 'Callback' : call.direction === 'inbound' ? 'Входящий' : 'Исходящий'}</div>
+                      <div className="micro">{call.source_number ? `+${call.source_number}` : '—'} → {call.destination_number ? `+${call.destination_number}` : '—'}</div>
+                    </td>
+                    <td>
+                      <span className={`badge ${call.status === 'missed' || call.status === 'failed' ? 'danger' : call.status === 'completed' || call.status === 'answered' ? 'success' : ''}`}>{call.status}</span>
+                      {call.last_error ? <div className="micro">{call.last_error}</div> : null}
+                    </td>
+                    <td>{formatDateTime(call.started_at || call.created_at)}</td>
+                    <td>{call.recording_url ? <a href={call.recording_url} target="_blank" rel="noreferrer">Открыть</a> : '—'}</td>
+                  </tr>
+                )
+              })}
+              {!callLogs.length ? <tr><td colSpan={5}>Звонков пока нет.</td></tr> : null}
+            </tbody>
+          </table>
+        </div>
+      </article>
 
       <article className="card stack">
         <div className="section-mini-head">

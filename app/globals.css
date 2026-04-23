@@ -3214,6 +3214,44 @@ body.builder-mode .constructor-board-stage {
   background: rgba(248, 113, 113, 0.06);
 }
 
+.lead-call-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid rgba(251, 191, 36, 0.26);
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(52, 211, 153, 0.08));
+  padding: 12px;
+}
+
+.lead-call-form {
+  flex: 0 0 auto;
+}
+
+.lead-call-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.lead-call-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 10px;
+}
+
+.lead-call-item--missed,
+.lead-call-item--failed {
+  border-color: rgba(248, 113, 113, 0.22);
+  background: rgba(248, 113, 113, 0.06);
+}
+
 .deal-bottleneck-grid {
   display: grid;
   grid-template-columns: repeat(6, minmax(150px, 1fr));
@@ -3359,6 +3397,12 @@ body.builder-mode .constructor-board-stage {
   .compact-form-grid--deals-top,
   .compact-form-grid--drawer {
     grid-template-columns: 1fr;
+  }
+
+  .lead-call-panel,
+  .lead-call-item {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 
