@@ -3765,6 +3765,14 @@ body.builder-mode .constructor-board-stage {
   white-space: nowrap;
 }
 
+.communications-inbox-table .attention-row td {
+  background: rgba(250, 204, 21, 0.045);
+}
+
+.communications-inbox-table .attention-row td:first-child {
+  box-shadow: inset 3px 0 0 rgba(250, 204, 21, 0.8);
+}
+
 .registry-actions--lead-row {
   grid-template-columns: 1fr;
   min-width: 118px;

@@ -2,7 +2,7 @@ import { getMessageDispatchWebhookUrl, isMessageDispatchDryRun } from '@/lib/env
 import { formatDateTime } from '@/lib/format'
 import { label } from '@/lib/labels'
 import { createClient } from '@/lib/supabase/server'
-import { dispatchOutboxNowAction, queueApplicationTemplateAction, queueManualMessageAction, updateOutboxStatusAction } from './actions'
+import { dispatchOutboxNowAction, markInboxHandledAction, queueApplicationTemplateAction, queueManualMessageAction, updateOutboxStatusAction } from './actions'
 
 function getDispatcherMode() {
   if (getMessageDispatchWebhookUrl()) return 'webhook'
@@ -18,21 +18,29 @@ export default async function CommunicationsPage({
   const params = (await searchParams) ?? {}
   const statusFilter = typeof params.status === 'string' ? params.status : ''
   const supabase = await createClient()
-  const [templatesRes, outboxRes] = await Promise.all([
+  const [templatesRes, outboxRes, inboxRes] = await Promise.all([
     supabase.from('message_templates').select('id, code, channel, audience, title, is_active, created_at').order('code', { ascending: true }),
     supabase
       .from('message_outbox')
-      .select('id, application_id, partner_account_id, channel, audience, template_code, recipient_name, recipient_email, recipient_phone, subject, body, status, send_after, sent_at, created_at, last_error')
+      .select('id, lead_id, application_id, partner_account_id, channel, audience, template_code, recipient_name, recipient_email, recipient_phone, subject, body, status, send_after, sent_at, created_at, last_error')
+      .order('created_at', { ascending: false })
+      .limit(60),
+    supabase
+      .from('message_inbox')
+      .select('id, lead_id, deal_id, application_id, channel, sender_name, sender_email, sender_phone, subject, body, status, provider, received_at, created_at, lead:leads(id, contact_name_raw, phone_raw, email_raw)')
       .order('created_at', { ascending: false })
       .limit(60),
   ])
 
   const templates = templatesRes.data ?? []
   const allOutbox = outboxRes.data ?? []
+  const allInbox = inboxRes.data ?? []
   const outbox = statusFilter ? allOutbox.filter((message) => message.status === statusFilter) : allOutbox
   const queuedCount = outbox.filter((message) => message.status === 'queued' || message.status === 'processing').length
   const failedCount = outbox.filter((message) => message.status === 'failed').length
   const sentCount = outbox.filter((message) => message.status === 'sent').length
+  const inboxOpenCount = allInbox.filter((message) => message.status !== 'handled').length
+  const inboxHandledCount = allInbox.filter((message) => message.status === 'handled').length
   const dispatcherMode = getDispatcherMode()
 
   return (
@@ -46,10 +54,75 @@ export default async function CommunicationsPage({
 
       <section className="kpi-grid">
         <article className="card kpi"><div className="kpi-label">Dispatcher mode</div><div className="kpi-value">{dispatcherMode}</div><div className="micro">webhook / dry_run / manual_only</div></article>
+        <article className="card kpi"><div className="kpi-label">Требуют ответа</div><div className="kpi-value">{inboxOpenCount}</div><div className="micro">входящие сообщения</div></article>
         <article className="card kpi"><div className="kpi-label">Queued</div><div className="kpi-value">{queuedCount}</div><div className="micro">ожидают отправки</div></article>
         <article className="card kpi"><div className="kpi-label">Ошибки</div><div className="kpi-value">{failedCount}</div><div className="micro">требуют внимания</div></article>
         <article className="card kpi"><div className="kpi-label">Sent</div><div className="kpi-value">{sentCount}</div><div className="micro">в последних 60 записях</div></article>
       </section>
+
+      <article className="card stack">
+        <div className="section-mini-head">
+          <div>
+            <h2>Входящие ответы</h2>
+            <div className="micro">Ответы клиентов из email/мессенджеров и ручные входящие из карточек. Открытые сообщения создают задачи менеджерам.</div>
+          </div>
+          <div className="compact-badges">
+            <span className={`badge ${inboxOpenCount ? 'danger' : 'success'}`}>Ответить: {inboxOpenCount}</span>
+            <span className="badge">Отработано: {inboxHandledCount}</span>
+          </div>
+        </div>
+        <div className="table-wrap">
+          <table className="table communications-inbox-table">
+            <thead>
+              <tr>
+                <th>Клиент</th>
+                <th>Канал</th>
+                <th>Сообщение</th>
+                <th>Получено</th>
+                <th>Действие</th>
+              </tr>
+            </thead>
+            <tbody>
+              {allInbox.map((message) => {
+                const lead = Array.isArray(message.lead) ? (message.lead[0] ?? null) : message.lead
+                return (
+                  <tr key={message.id} className={message.status === 'handled' ? '' : 'attention-row'}>
+                    <td>
+                      <div>{message.sender_name || lead?.contact_name_raw || 'Без имени'}</div>
+                      <div className="micro">{message.sender_email || message.sender_phone || lead?.email_raw || lead?.phone_raw || '—'}</div>
+                    </td>
+                    <td>
+                      <div>{label('channel', message.channel)}</div>
+                      <div className="micro">{message.provider || 'manual'}</div>
+                    </td>
+                    <td>
+                      <div>{message.subject || 'Без темы'}</div>
+                      <div className="micro outbox-body-preview">{message.body}</div>
+                      <div className="micro">{message.status === 'handled' ? 'отработано' : 'требует ответа'}</div>
+                    </td>
+                    <td>{formatDateTime(message.received_at || message.created_at)}</td>
+                    <td>
+                      <div className="form-actions">
+                        {message.lead_id ? <a className="button-secondary" href={`/dashboard/my-leads?open=${message.lead_id}#lead-communications`}>Открыть клиента</a> : null}
+                        {message.status !== 'handled' ? (
+                          <form action={markInboxHandledAction}>
+                            <input type="hidden" name="message_id" value={message.id} />
+                            <input type="hidden" name="lead_id" value={message.lead_id || ''} />
+                            <button className="button-secondary">Отработано</button>
+                          </form>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+              {!allInbox.length ? (
+                <tr><td colSpan={5}>Входящих сообщений пока нет.</td></tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </article>
 
       <section className="grid-2">
         <article className="card stack">

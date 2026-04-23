@@ -140,6 +140,45 @@ export async function updateOutboxStatusAction(formData: FormData) {
   refreshCommunicationPaths()
 }
 
+export async function markInboxHandledAction(formData: FormData) {
+  const { supabase, user } = await requireAbility('/dashboard/communications', 'communication.outbox_manage')
+  const messageId = value(formData, 'message_id')
+  const leadId = value(formData, 'lead_id')
+  if (!messageId) return
+
+  const { error } = await supabase
+    .from('message_inbox')
+    .update({
+      status: 'handled',
+      handled_at: new Date().toISOString(),
+      handled_by: user?.id ?? null,
+    })
+    .eq('id', messageId)
+
+  if (error) redirect(`/error?message=${encodeURIComponent(error.message)}`)
+
+  if (leadId) {
+    await supabase
+      .from('tasks')
+      .update({ status: 'done' })
+      .eq('lead_id', leadId)
+      .in('status', ['todo', 'doing'])
+      .contains('metadata', { automation_key: 'lead_inbound_reply' })
+
+    await supabase.from('activity_log').insert({
+      actor_user_id: user?.id ?? null,
+      entity_type: 'lead',
+      entity_id: leadId,
+      event_type: 'lead_inbound_message_handled',
+      title: 'Входящее сообщение отработано',
+      body: 'Сообщение обработано из центра коммуникаций.',
+      metadata: { message_inbox_id: messageId, source: 'communications_center' },
+    })
+  }
+
+  refreshCommunicationPaths()
+}
+
 export async function dispatchOutboxNowAction(formData: FormData) {
   await requireAbility('/dashboard/communications', 'communication.dispatch')
 
