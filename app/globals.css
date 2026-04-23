@@ -3121,6 +3121,69 @@ body.builder-mode .constructor-board-stage {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.deal-readiness-panel {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.deal-readiness-step {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 11px 12px;
+}
+
+.deal-readiness-step span {
+  color: var(--muted);
+  font-size: 0.86rem;
+  overflow-wrap: anywhere;
+}
+
+.deal-readiness-step.is-done {
+  border-color: rgba(52, 211, 153, 0.22);
+  background: rgba(52, 211, 153, 0.07);
+}
+
+.deal-readiness-step.is-waiting {
+  border-color: rgba(250, 204, 21, 0.2);
+  background: rgba(250, 204, 21, 0.06);
+}
+
+.deal-readiness-step.is-blocked {
+  border-color: rgba(248, 113, 113, 0.18);
+  background: rgba(248, 113, 113, 0.06);
+}
+
+.deal-next-step {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(125, 211, 252, 0.18);
+  background: rgba(125, 211, 252, 0.07);
+  padding: 12px;
+}
+
+.deal-next-step--success {
+  border-color: rgba(52, 211, 153, 0.24);
+  background: rgba(52, 211, 153, 0.08);
+}
+
+.deal-next-step--warning {
+  border-color: rgba(250, 204, 21, 0.24);
+  background: rgba(250, 204, 21, 0.08);
+}
+
+.deal-next-step--danger {
+  border-color: rgba(248, 113, 113, 0.22);
+  background: rgba(248, 113, 113, 0.07);
+}
+
 .micro-inline {
   color: var(--muted);
 }
@@ -3177,6 +3240,7 @@ body.builder-mode .constructor-board-stage {
   }
 
   .deal-drawer-meta-grid,
+  .deal-readiness-panel,
   .compact-form-grid--deals-top,
   .compact-form-grid--drawer {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3185,6 +3249,7 @@ body.builder-mode .constructor-board-stage {
 
 @media (max-width: 760px) {
   .deal-drawer-meta-grid,
+  .deal-readiness-panel,
   .compact-form-grid--deals-top,
   .compact-form-grid--drawer {
     grid-template-columns: 1fr;

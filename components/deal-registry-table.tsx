@@ -57,6 +57,13 @@ export function DealRegistryTable({
             const flow = flowByDealId[deal.id]
             const paid = Boolean(flow?.payment_amount && flow.payment_paid_amount >= flow.payment_amount)
             const partiallyPaid = Boolean(!paid && flow?.payment_paid_amount)
+            const nextStep = !flow?.contract_id
+              ? 'Нужен договор'
+              : flow.contract_status !== 'signed'
+                ? 'Ждём подпись'
+                : !paid
+                  ? partiallyPaid ? 'Доплата' : 'Ждём оплату'
+                  : flow.application_id ? 'В участниках' : 'Создать участника'
             return (
               <tr
                 key={deal.id}
@@ -80,6 +87,7 @@ export function DealRegistryTable({
                 <div>{formatCurrency(deal.estimated_value, deal.currency || 'RUB')}</div>
                 <div className="micro">Участников: {deal.participants_count || 1}</div>
                 {flow ? <div className={`micro ${paid ? 'success-text' : ''}`}>{paid ? 'Оплачено' : partiallyPaid ? 'Частично оплачено' : 'Ожидает оплаты'} · {formatCurrency(flow.payment_paid_amount, deal.currency || 'RUB')}</div> : null}
+                <div className="micro">Следующий шаг: {nextStep}</div>
               </td>
               <td>{formatDateTime(deal.created_at)}</td>
               <td>

@@ -13,6 +13,27 @@ function leadInterestLine(deal: Awaited<ReturnType<typeof getDealById>>) {
 
 const pipelineStages = ['qualified', 'proposal', 'negotiation', 'won', 'lost']
 
+function dealPaymentState(flow: Awaited<ReturnType<typeof getDealFlowSummaries>>[string] | undefined, fallbackAmount = 0) {
+  const amount = flow?.payment_amount || fallbackAmount || 0
+  const paid = flow?.payment_paid_amount || 0
+  return {
+    amount,
+    paid,
+    remaining: Math.max(0, amount - paid),
+    isPaid: amount > 0 && paid >= amount,
+    isPartial: paid > 0 && paid < amount,
+  }
+}
+
+function dealNextStep(flow: Awaited<ReturnType<typeof getDealFlowSummaries>>[string] | undefined, fallbackAmount = 0, currency = 'RUB') {
+  const payment = dealPaymentState(flow, fallbackAmount)
+  if (!flow?.contract_id) return { tone: 'danger', title: 'Нужен договор', text: 'Создайте договор и привяжите его к сделке.' }
+  if (flow.contract_status !== 'signed') return { tone: 'warning', title: 'Ждём подпись', text: 'Договор есть, но ещё не подписан клиентом.' }
+  if (!payment.isPaid) return { tone: payment.isPartial ? 'warning' : 'danger', title: payment.isPartial ? 'Доплатить остаток' : 'Ждём оплату', text: payment.isPartial ? `Осталось ${formatCurrency(payment.remaining, currency)}.` : 'Зафиксируйте частичную или полную оплату.' }
+  if (!flow.application_id) return { tone: 'warning', title: 'Передать в участники', text: 'Договор подписан и оплата закрыта. Создайте участника выезда.' }
+  return { tone: 'success', title: 'Готово к выезду', text: 'Клиент уже переведён в участники.' }
+}
+
 export default async function DealsPage({
   searchParams,
 }: {
@@ -40,6 +61,9 @@ export default async function DealsPage({
 
   const visibleDeals = createdDeal && !deals.some((deal) => deal.id === createdDeal.id) ? [createdDeal, ...deals] : deals
   const flowByDealId = await getDealFlowSummaries(visibleDeals.map((deal) => deal.id))
+  const openFlow = openDeal ? flowByDealId[openDeal.id] : undefined
+  const openPaymentState = openDeal ? dealPaymentState(openFlow, Number(openDeal.estimated_value ?? 0)) : null
+  const openNextStep = openDeal ? dealNextStep(openFlow, Number(openDeal.estimated_value ?? 0), openDeal.currency || 'RUB') : null
   const matchingDepartures = openDeal?.program_id
     ? departures.filter((departure) => departure.program_id === openDeal.program_id || departure.id === openDeal.departure_id)
     : departures
@@ -331,6 +355,39 @@ export default async function DealsPage({
             </form>
 
             <div className="card-subtle stack">
+              <div className="deal-readiness-panel">
+                <div className={`deal-readiness-step ${openFlow?.contract_id ? 'is-done' : 'is-blocked'}`}>
+                  <div className="micro">Договор</div>
+                  <strong>{openFlow?.contract_status ? label('contractStatus', openFlow.contract_status) : 'Не создан'}</strong>
+                  <span>{openFlow?.contract_signed_at ? `подписан ${formatDate(openFlow.contract_signed_at)}` : 'нужен для запуска оплаты'}</span>
+                </div>
+                <div className={`deal-readiness-step ${openPaymentState?.isPaid ? 'is-done' : openPaymentState?.isPartial ? 'is-waiting' : 'is-blocked'}`}>
+                  <div className="micro">Оплата</div>
+                  <strong>{openPaymentState?.isPaid ? 'Оплачено' : openPaymentState?.isPartial ? 'Частично' : 'Нет оплаты'}</strong>
+                  <span>{formatCurrency(openPaymentState?.paid || 0, openDeal.currency)} / {formatCurrency(openPaymentState?.amount || 0, openDeal.currency)}</span>
+                </div>
+                <div className={`deal-readiness-step ${openFlow?.application_id ? 'is-done' : 'is-waiting'}`}>
+                  <div className="micro">Участник</div>
+                  <strong>{openFlow?.application_id ? 'Создан' : 'Не создан'}</strong>
+                  <span>{openFlow?.application_id ? 'клиент в разделе участников' : 'после договора и оплаты'}</span>
+                </div>
+              </div>
+              {openNextStep ? (
+                <div className={`deal-next-step deal-next-step--${openNextStep.tone}`}>
+                  <div>
+                    <div className="micro">Следующий шаг</div>
+                    <strong>{openNextStep.title}</strong>
+                    <div>{openNextStep.text}</div>
+                  </div>
+                  <div className="form-actions">
+                    {!openFlow?.contract_id ? <Link className="button-secondary" href={`/dashboard/contracts?deal_id=${openDeal.id}`}>Создать договор</Link> : null}
+                    {openFlow?.contract_id && openFlow.contract_status !== 'signed' ? <Link className="button-secondary" href={`/dashboard/contracts/${openFlow.contract_id}`}>Открыть договор</Link> : null}
+                    {openFlow?.contract_status === 'signed' && !openPaymentState?.isPaid ? <Link className="button-secondary" href={`/dashboard/deals?open=${openDeal.id}&pay=1#deal-payment-popover`}>Внести оплату</Link> : null}
+                    {openFlow?.contract_status === 'signed' && openPaymentState?.isPaid && !openFlow?.application_id ? <Link className="button-secondary" href={`/dashboard/deals?open=${openDeal.id}&pay=1#deal-payment-popover`}>Создать участника</Link> : null}
+                  </div>
+                </div>
+              ) : null}
+
               <div className="compact-toolbar">
                 <div>
                   <h3 style={{ margin: 0 }}>Договор и оплата</h3>
