@@ -5,6 +5,7 @@ import { getSiteUrl } from '@/lib/env'
 import { getAuthContext } from '@/lib/auth'
 import { isStaffRole } from '@/lib/roles'
 import { WorkbarReminders } from '@/components/workbar-reminders'
+import { WorkbarSearch } from '@/components/workbar-search'
 
 export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
@@ -26,6 +27,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <span className="brand-subtitle">Мозг · двигатель · колёса одной системы</span>
             </Link>
             <nav className="nav-inline">
+              {showWorkbarReminders ? <WorkbarSearch /> : null}
               {showWorkbarReminders ? <WorkbarReminders profileId={profile!.id} /> : null}
               <Link className="nav-chip" href="/programs">
                 Программы

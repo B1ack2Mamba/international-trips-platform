@@ -1071,6 +1071,59 @@ export type TaskReminderSummary = {
   items: TaskRow[]
 }
 
+export type WorkbarAttentionMessage = {
+  id: string
+  lead_id: string | null
+  sender_name: string | null
+  sender_email: string | null
+  sender_phone: string | null
+  subject: string | null
+  received_at: string | null
+  lead?: { id: string; contact_name_raw: string | null; owner_user_id?: string | null } | null
+}
+
+export type WorkbarAttentionCall = {
+  id: string
+  lead_id: string | null
+  status: string
+  display_number: string | null
+  created_at: string
+  started_at: string | null
+  lead?: { id: string; contact_name_raw: string | null; owner_user_id?: string | null } | null
+}
+
+export type WorkbarAttentionContract = {
+  id: string
+  status: string
+  title: string
+  created_at: string
+  deal?: { id: string; title: string; owner_user_id?: string | null } | null
+  application?: { id: string; participant_name: string | null } | null
+}
+
+export type WorkbarAttentionSummary = {
+  task_summary: TaskReminderSummary
+  inbox_open: number
+  missed_calls: number
+  pending_contracts: number
+  inbox_items: WorkbarAttentionMessage[]
+  missed_call_items: WorkbarAttentionCall[]
+  pending_contract_items: WorkbarAttentionContract[]
+  total_attention: number
+}
+
+export type GlobalSearchLeadResult = Pick<LeadRow, 'id' | 'contact_name_raw' | 'phone_raw' | 'email_raw' | 'desired_country' | 'status' | 'created_at'>
+export type GlobalSearchDealResult = Pick<DealRow, 'id' | 'title' | 'stage' | 'currency' | 'estimated_value' | 'created_at'> & { lead?: { id: string; contact_name_raw: string | null } | null; account?: { id: string; display_name: string } | null }
+export type GlobalSearchContractResult = Pick<ContractRow, 'id' | 'contract_number' | 'title' | 'status' | 'created_at'> & { application?: { id: string; participant_name: string | null } | null; deal?: { id: string; title: string } | null }
+export type GlobalSearchApplicationResult = Pick<ApplicationRow, 'id' | 'participant_name' | 'guardian_name' | 'guardian_phone' | 'guardian_email' | 'status' | 'created_at'> & { deal?: { id: string; title: string } | null }
+
+export type GlobalSearchResults = {
+  leads: GlobalSearchLeadResult[]
+  deals: GlobalSearchDealResult[]
+  contracts: GlobalSearchContractResult[]
+  applications: GlobalSearchApplicationResult[]
+}
+
 function taskDueDate(task: TaskRow) {
   if (!task.due_date) return null
   const date = new Date(task.due_date)
@@ -1106,6 +1159,102 @@ export async function getTaskReminderSummary(ownerUserId: string, limit = 5): Pr
     upcoming,
     total_open: tasks.length,
     items: tasks.slice(0, limit),
+  }
+}
+
+export async function getWorkbarAttentionSummary(ownerUserId: string, limit = 4): Promise<WorkbarAttentionSummary> {
+  const supabase = await createClient()
+  const [taskSummary, inboxRes, callsRes, contractsRes] = await Promise.all([
+    getTaskReminderSummary(ownerUserId, Math.max(limit * 2, 8)),
+    supabase
+      .from('message_inbox')
+      .select('id, lead_id, sender_name, sender_email, sender_phone, subject, received_at, status, lead:leads(id, contact_name_raw, owner_user_id)')
+      .neq('status', 'handled')
+      .order('received_at', { ascending: false })
+      .limit(30),
+    supabase
+      .from('call_logs')
+      .select('id, lead_id, status, display_number, created_at, started_at, lead:leads(id, contact_name_raw, owner_user_id)')
+      .eq('status', 'missed')
+      .order('created_at', { ascending: false })
+      .limit(30),
+    supabase
+      .from('contracts')
+      .select('id, status, title, created_at, deal:deals!contracts_deal_id_fkey(id, title, owner_user_id), application:applications(id, participant_name)')
+      .in('status', ['ready', 'sent', 'viewed'])
+      .order('created_at', { ascending: false })
+      .limit(30),
+  ])
+
+  const inboxItems = asRows<WorkbarAttentionMessage>(inboxRes.data)
+    .map((item) => ({ ...item, lead: firstRelation(item.lead) }))
+    .filter((item) => item.lead?.owner_user_id === ownerUserId)
+    .slice(0, limit)
+
+  const missedCallItems = asRows<WorkbarAttentionCall>(callsRes.data)
+    .map((item) => ({ ...item, lead: firstRelation(item.lead) }))
+    .filter((item) => item.lead?.owner_user_id === ownerUserId)
+    .slice(0, limit)
+
+  const pendingContractItems = asRows<WorkbarAttentionContract>(contractsRes.data)
+    .map((item) => ({ ...item, deal: firstRelation(item.deal), application: firstRelation(item.application) }))
+    .filter((item) => item.deal?.owner_user_id === ownerUserId)
+    .slice(0, limit)
+
+  const inboxCount = inboxItems.length
+  const missedCallCount = missedCallItems.length
+  const pendingContractCount = pendingContractItems.length
+
+  return {
+    task_summary: taskSummary,
+    inbox_open: inboxCount,
+    missed_calls: missedCallCount,
+    pending_contracts: pendingContractCount,
+    inbox_items: inboxItems,
+    missed_call_items: missedCallItems,
+    pending_contract_items: pendingContractItems,
+    total_attention: taskSummary.total_open + inboxCount + missedCallCount + pendingContractCount,
+  }
+}
+
+export async function searchGlobalWorkspace(query: string, limit = 8): Promise<GlobalSearchResults> {
+  const supabase = await createClient()
+  const q = query.trim()
+  if (!q) return { leads: [], deals: [], contracts: [], applications: [] }
+
+  const pattern = `%${q.replace(/\s+/g, '%')}%`
+  const [leadsRes, dealsRes, contractsRes, applicationsRes] = await Promise.all([
+    supabase
+      .from('leads')
+      .select('id, contact_name_raw, phone_raw, email_raw, desired_country, status, created_at')
+      .or(`contact_name_raw.ilike.${pattern},phone_raw.ilike.${pattern},email_raw.ilike.${pattern},desired_country.ilike.${pattern}`)
+      .order('created_at', { ascending: false })
+      .limit(limit),
+    supabase
+      .from('deals')
+      .select('id, title, stage, currency, estimated_value, created_at, lead:leads!deals_lead_id_fkey(id, contact_name_raw), account:accounts!deals_account_id_fkey(id, display_name)')
+      .or(`title.ilike.${pattern},notes.ilike.${pattern}`)
+      .order('created_at', { ascending: false })
+      .limit(limit),
+    supabase
+      .from('contracts')
+      .select('id, contract_number, title, status, created_at, deal:deals!contracts_deal_id_fkey(id, title), application:applications(id, participant_name)')
+      .or(`contract_number.ilike.${pattern},title.ilike.${pattern},signatory_name.ilike.${pattern},signatory_email.ilike.${pattern}`)
+      .order('created_at', { ascending: false })
+      .limit(limit),
+    supabase
+      .from('applications')
+      .select('id, participant_name, guardian_name, guardian_phone, guardian_email, status, created_at, deal:deals(id, title)')
+      .or(`participant_name.ilike.${pattern},guardian_name.ilike.${pattern},guardian_phone.ilike.${pattern},guardian_email.ilike.${pattern}`)
+      .order('created_at', { ascending: false })
+      .limit(limit),
+  ])
+
+  return {
+    leads: asRows<GlobalSearchLeadResult>(leadsRes.data),
+    deals: asRows<GlobalSearchDealResult>(dealsRes.data).map((row) => ({ ...row, lead: firstRelation(row.lead), account: firstRelation(row.account) })),
+    contracts: asRows<GlobalSearchContractResult>(contractsRes.data).map((row) => ({ ...row, deal: firstRelation(row.deal), application: firstRelation(row.application) })),
+    applications: asRows<GlobalSearchApplicationResult>(applicationsRes.data).map((row) => ({ ...row, deal: firstRelation(row.deal) })),
   }
 }
 
