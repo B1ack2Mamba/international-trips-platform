@@ -1144,6 +1144,9 @@ export type SystemIssueRow = {
   href: string
   created_at: string
   tone: 'danger' | 'warning'
+  entity_id?: string | null
+  lead_id?: string | null
+  primary_action?: 'requeue_outbox' | 'mark_inbox_handled' | null
 }
 
 export type SystemOpsSummary = {
@@ -1346,6 +1349,8 @@ export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary>
       href: '/dashboard/communications',
       created_at: row.created_at,
       tone: 'danger' as const,
+      entity_id: row.id,
+      primary_action: 'requeue_outbox' as const,
     })),
     ...stuckMessages.map((row) => ({
       id: `message-stuck-${row.id}`,
@@ -1355,6 +1360,8 @@ export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary>
       href: '/dashboard/communications',
       created_at: row.created_at,
       tone: 'warning' as const,
+      entity_id: row.id,
+      primary_action: 'requeue_outbox' as const,
     })),
     ...failedCalls.map((row) => ({
       id: `call-failed-${row.id}`,
@@ -1364,6 +1371,7 @@ export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary>
       href: '/dashboard/communications',
       created_at: row.created_at,
       tone: 'danger' as const,
+      entity_id: row.id,
     })),
     ...staleContracts.map((row) => {
       const application = firstRelation(row.application)
@@ -1375,6 +1383,7 @@ export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary>
         href: `/dashboard/contracts/${row.id}`,
         created_at: row.created_at,
         tone: 'warning' as const,
+        entity_id: row.id,
       }
     }),
     ...staleInbox.map((row) => ({
@@ -1385,6 +1394,9 @@ export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary>
       href: row.lead_id ? `/dashboard/my-leads?open=${row.lead_id}#lead-communications` : '/dashboard/communications',
       created_at: row.received_at || new Date().toISOString(),
       tone: 'warning' as const,
+      entity_id: row.id,
+      lead_id: row.lead_id,
+      primary_action: 'mark_inbox_handled' as const,
     })),
   ]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())

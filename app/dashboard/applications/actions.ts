@@ -37,6 +37,29 @@ function refreshApplicationPaths(applicationId?: string, contractId?: string, de
   if (dealId) revalidatePath(`/dashboard/deals/${dealId}`)
 }
 
+async function findRecentDuplicatePayment(params: {
+  supabase: Awaited<ReturnType<typeof requireAbility>>['supabase']
+  applicationId: string
+  label: string
+  amount: number
+  currency: string
+}) {
+  const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString()
+  const { data } = await params.supabase
+    .from('payments')
+    .select('id, deal_id')
+    .eq('application_id', params.applicationId)
+    .eq('label', params.label)
+    .eq('amount', params.amount)
+    .eq('currency', params.currency)
+    .gte('created_at', tenMinutesAgo)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle<{ id: string; deal_id: string | null }>()
+
+  return data ?? null
+}
+
 export async function updateApplicationStatusAction(formData: FormData) {
   const { supabase } = await requireAbility('/dashboard/applications', 'application.update')
   const applicationId = value(formData, 'application_id')
@@ -131,13 +154,27 @@ export async function createPaymentForApplicationAction(formData: FormData) {
     redirect('/error?message=' + encodeURIComponent('Укажи корректную сумму платежа'))
   }
 
+  const paymentLabel = value(formData, 'label') || 'Платёж'
+  const duplicatePayment = await findRecentDuplicatePayment({
+    supabase,
+    applicationId,
+    label: paymentLabel,
+    amount,
+    currency,
+  })
+
+  if (duplicatePayment?.id) {
+    refreshApplicationPaths(applicationId, undefined, null, application.deal_id as string | null)
+    redirect(`/dashboard/applications/${applicationId}?existing_payment=${encodeURIComponent(duplicatePayment.id)}`)
+  }
+
   const { data: payment, error } = await supabase
     .from('payments')
     .insert({
       deal_id: application.deal_id as string | null,
       application_id: applicationId,
       payer_name: optionalValue(formData, 'payer_name') || (application.guardian_name as string | null) || (application.guardian_email as string | null) || 'Плательщик',
-      label: value(formData, 'label') || 'Платёж',
+      label: paymentLabel,
       amount,
       currency,
       due_date: optionalValue(formData, 'due_date'),

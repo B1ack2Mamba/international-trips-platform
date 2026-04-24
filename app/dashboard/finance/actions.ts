@@ -31,6 +31,33 @@ function refreshFinancePaths(applicationId?: string | null, dealId?: string | nu
   if (dealId) revalidatePath(`/dashboard/deals/${dealId}`)
 }
 
+async function findRecentDuplicatePayment(params: {
+  supabase: Awaited<ReturnType<typeof requireAbility>>['supabase']
+  applicationId: string | null
+  dealId: string | null
+  label: string
+  amount: number
+  currency: string
+}) {
+  const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString()
+  const query = params.supabase
+    .from('payments')
+    .select('id, application_id, deal_id')
+    .eq('label', params.label)
+    .eq('amount', params.amount)
+    .eq('currency', params.currency)
+    .gte('created_at', tenMinutesAgo)
+    .order('created_at', { ascending: false })
+    .limit(1)
+
+  const scopedQuery = params.applicationId
+    ? query.eq('application_id', params.applicationId)
+    : query.is('application_id', null).eq('deal_id', params.dealId)
+
+  const { data } = await scopedQuery.maybeSingle<{ id: string; application_id: string | null; deal_id: string | null }>()
+  return data ?? null
+}
+
 export async function createPaymentAction(formData: FormData) {
   const { supabase, user } = await requireAbility('/dashboard/finance', 'finance.payment_create')
   const applicationId = optionalValue(formData, 'application_id')
@@ -68,13 +95,30 @@ export async function createPaymentAction(formData: FormData) {
     redirect('/error?message=' + encodeURIComponent('Укажи корректную сумму платежа'))
   }
 
+  const paymentLabel = value(formData, 'label') || 'Платёж'
+  const duplicatePayment = await findRecentDuplicatePayment({
+    supabase,
+    applicationId,
+    dealId,
+    label: paymentLabel,
+    amount,
+    currency,
+  })
+
+  if (duplicatePayment?.id) {
+    refreshFinancePaths(applicationId, dealId)
+    redirect(
+      `/dashboard/finance?${applicationId ? `application_id=${encodeURIComponent(applicationId)}` : `deal_id=${encodeURIComponent(dealId || '')}`}&existing_payment=${encodeURIComponent(duplicatePayment.id)}`,
+    )
+  }
+
   const { data: payment, error } = await supabase
     .from('payments')
     .insert({
       deal_id: dealId,
       application_id: applicationId,
       payer_name: payerName || 'Плательщик',
-      label: value(formData, 'label') || 'Платёж',
+      label: paymentLabel,
       amount,
       currency,
       due_date: optionalValue(formData, 'due_date'),

@@ -3,6 +3,8 @@ import { EmptyState } from '@/components/empty-state'
 import { requireDashboardAccess } from '@/lib/auth'
 import { formatDateTime } from '@/lib/format'
 import { getSystemOpsSummary } from '@/lib/queries'
+import { canPerform } from '@/lib/roles'
+import { markSystemInboxHandledAction, requeueOutboxMessageAction } from './actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,8 +46,9 @@ function SystemKpi({
 }
 
 export default async function SystemPage() {
-  await requireDashboardAccess('/dashboard/system')
+  const { profile } = await requireDashboardAccess('/dashboard/system')
   const summary = await getSystemOpsSummary()
+  const canManageOutbox = canPerform(profile?.role, 'communication.outbox_manage')
 
   return (
     <div className="content-stack">
@@ -95,7 +98,22 @@ export default async function SystemPage() {
                     <td>{item.detail}</td>
                     <td>{formatDateTime(item.created_at)}</td>
                     <td>
-                      <Link href={item.href}>Открыть</Link>
+                      <div className="form-actions">
+                        <Link href={item.href}>Открыть</Link>
+                        {canManageOutbox && item.primary_action === 'requeue_outbox' && item.entity_id ? (
+                          <form action={requeueOutboxMessageAction}>
+                            <input type="hidden" name="message_id" value={item.entity_id} />
+                            <button className="button-secondary">В очередь</button>
+                          </form>
+                        ) : null}
+                        {canManageOutbox && item.primary_action === 'mark_inbox_handled' && item.entity_id ? (
+                          <form action={markSystemInboxHandledAction}>
+                            <input type="hidden" name="message_id" value={item.entity_id} />
+                            <input type="hidden" name="lead_id" value={item.lead_id || ''} />
+                            <button className="button-secondary">Закрыть</button>
+                          </form>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 ))}
