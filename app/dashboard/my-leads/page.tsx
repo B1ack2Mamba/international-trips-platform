@@ -6,7 +6,7 @@ import { getLeadAssignableProfiles, type LeadAssignableProfile } from '@/lib/lea
 import { requireDashboardAccess } from '@/lib/auth'
 import { formatDateTime } from '@/lib/format'
 import { label } from '@/lib/labels'
-import { getActivityLog, getCallLogsByLead, getContractsByDeal, getDealById, getDealFlowSummaries, getLeadById, getLeadCommunications, getMyLeads, getPaymentsByDeal, getSalesScriptsBySegment, getTasksByLead, type LeadRow, type TaskRow } from '@/lib/queries'
+import { getActivityLog, getAuditTrail, getCallLogsByLead, getContractsByDeal, getDealById, getDealFlowSummaries, getLeadById, getLeadCommunications, getMyLeads, getPaymentsByDeal, getSalesScriptsBySegment, getTasksByLead, type AuditTrailRow, type LeadRow, type TaskRow } from '@/lib/queries'
 
 export const dynamic = 'force-dynamic'
 
@@ -173,6 +173,43 @@ function LeadHistorySection({ lead, activities }: { lead: LeadRow | null; activi
   )
 }
 
+function LeadAuditSection({ lead, audit }: { lead: LeadRow | null; audit: AuditTrailRow[] }) {
+  return (
+    <article className="card stack">
+      <div className="section-mini-head">
+        <div>
+          <h2>Аудит изменений</h2>
+          <div className="micro">{lead ? `Поля клиента и их изменения` : 'Выберите клиента, чтобы увидеть аудит.'}</div>
+        </div>
+        {lead ? <span className="badge">Записей: {audit.length}</span> : null}
+      </div>
+      {lead && audit.length ? (
+        <div className="lead-task-list">
+          {audit.map((row) => {
+            const changed = row.changed_fields && typeof row.changed_fields === 'object' ? Object.entries(row.changed_fields) : []
+            return (
+              <details key={row.id} className="lead-audit-item">
+                <summary>
+                  <strong>{row.action === 'insert' ? 'Создание записи' : row.action === 'delete' ? 'Удаление записи' : 'Обновление полей'}</strong>
+                  <span className="micro">{formatDateTime(row.created_at)} · {row.actor?.full_name || row.actor?.email || 'система'}</span>
+                </summary>
+                <div className="lead-audit-item__body">
+                  {changed.length ? changed.map(([field, values]) => (
+                    <div key={field} className="lead-audit-change">
+                      <strong>{field}</strong>
+                      <div className="micro" style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(values)}</div>
+                    </div>
+                  )) : <div className="micro">Изменения по полям не требуются для этой операции.</div>}
+                </div>
+              </details>
+            )
+          })}
+        </div>
+      ) : <div className="notice">{lead ? 'Аудит пока пустой.' : 'Выберите клиента в таблице выше.'}</div>}
+    </article>
+  )
+}
+
 export default async function MyLeadsPage({
   searchParams,
 }: {
@@ -186,7 +223,7 @@ export default async function MyLeadsPage({
   const transferMode = params.transfer === '1'
   const error = typeof params.error === 'string' ? params.error : ''
 
-  const [leads, openLead, assignableProfiles, activities, leadTasks, communications, callLogs] = await Promise.all([
+  const [leads, openLead, assignableProfiles, activities, leadTasks, communications, callLogs, auditTrail] = await Promise.all([
     getMyLeads(user!.id, 120),
     openLeadId ? getLeadById(openLeadId) : Promise.resolve(null),
     getLeadAssignableProfiles(),
@@ -194,6 +231,7 @@ export default async function MyLeadsPage({
     openLeadId ? getTasksByLead(openLeadId, 10) : Promise.resolve([]),
     openLeadId ? getLeadCommunications(openLeadId, 40) : Promise.resolve([]),
     openLeadId ? getCallLogsByLead(openLeadId, 20) : Promise.resolve([]),
+    openLeadId ? getAuditTrail('lead', openLeadId, 20) : Promise.resolve([]),
   ])
   const aiScript = activities.find((activity) => activity.event_type === 'ai_sales_script_generated') ?? null
   const historyActivities = activities.filter((activity) => activity.event_type !== 'ai_sales_script_generated')
@@ -268,6 +306,7 @@ export default async function MyLeadsPage({
       </div>
 
       <LeadHistorySection lead={openLead} activities={historyActivities} />
+      <LeadAuditSection lead={openLead} audit={auditTrail} />
 
     </div>
   )

@@ -403,6 +403,18 @@ export type ActivityRow = {
   actor: MiniProfile
 }
 
+export type AuditTrailRow = {
+  id: string
+  entity_type: string
+  entity_id: string
+  action: string
+  changed_fields: JsonMap
+  old_data: JsonMap
+  new_data: JsonMap
+  created_at: string
+  actor: MiniProfile
+}
+
 export type LeadCommunicationRow = {
   id: string
   direction: 'inbound' | 'outbound'
@@ -1380,6 +1392,18 @@ export async function getActivityLog(entityType: string, entityId: string, limit
   const supabase = await createClient()
   const { data } = await supabase.from('activity_log').select('id, entity_type, entity_id, event_type, title, body, metadata, created_at, actor:profiles(id, full_name, email)').eq('entity_type', entityType).eq('entity_id', entityId).order('created_at', { ascending: false }).limit(limit)
   return asRows<ActivityRow>(data)
+}
+
+export async function getAuditTrail(entityType: string, entityId: string, limit = 20): Promise<AuditTrailRow[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('crm_audit_log')
+    .select('id, entity_type, entity_id, action, changed_fields, old_data, new_data, created_at, actor:profiles(id, full_name, email)')
+    .eq('entity_type', entityType)
+    .eq('entity_id', entityId)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  return asRows<AuditTrailRow>(data)
 }
 
 export async function getLeadCommunications(leadId: string, limit = 30): Promise<LeadCommunicationRow[]> {

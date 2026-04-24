@@ -3290,6 +3290,40 @@ body.builder-mode .constructor-board-stage {
   background: rgba(248, 113, 113, 0.06);
 }
 
+.lead-audit-item {
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 10px 12px;
+}
+
+.lead-audit-item summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.lead-audit-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.lead-audit-item__body {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.lead-audit-change {
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(6, 11, 27, 0.44);
+}
+
 .deal-bottleneck-grid {
   display: grid;
   grid-template-columns: repeat(6, minmax(150px, 1fr));

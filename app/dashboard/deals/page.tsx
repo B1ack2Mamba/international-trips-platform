@@ -4,7 +4,7 @@ import { ProcessTrail } from '@/components/process-trail'
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/format'
 import { label } from '@/lib/labels'
 import { DealRegistryTable } from '@/components/deal-registry-table'
-import { getActivityLog, getAssignableManagers, getDealById, getDealFlowSummaries, getDeals, getDepartures, getPartnerAccounts, getPaymentsByDeal, getPrograms, getRecentLeads, getTasksByDeal } from '@/lib/queries'
+import { getActivityLog, getAssignableManagers, getAuditTrail, getDealById, getDealFlowSummaries, getDeals, getDepartures, getPartnerAccounts, getPaymentsByDeal, getPrograms, getRecentLeads, getTasksByDeal } from '@/lib/queries'
 
 function leadInterestLine(deal: Awaited<ReturnType<typeof getDealById>>) {
   if (!deal) return 'Интерес не указан'
@@ -54,7 +54,7 @@ export default async function DealsPage({
   const openDealId = typeof params.open === 'string' ? params.open : created
   const payMode = params.pay === '1'
 
-  const [deals, leads, createdDeal, openDeal, programs, departures, partnerAccounts, managers, openPayments, openTasks, openActivities] = await Promise.all([
+  const [deals, leads, createdDeal, openDeal, programs, departures, partnerAccounts, managers, openPayments, openTasks, openActivities, openAuditTrail] = await Promise.all([
     getDeals(40),
     getRecentLeads(50),
     created ? getDealById(created) : Promise.resolve(null),
@@ -66,6 +66,7 @@ export default async function DealsPage({
     openDealId ? getPaymentsByDeal(openDealId, 20) : Promise.resolve([]),
     openDealId ? getTasksByDeal(openDealId, 10) : Promise.resolve([]),
     openDealId ? getActivityLog('deal', openDealId, 20) : Promise.resolve([]),
+    openDealId ? getAuditTrail('deal', openDealId, 20) : Promise.resolve([]),
   ])
 
   const visibleDeals = createdDeal && !deals.some((deal) => deal.id === createdDeal.id) ? [createdDeal, ...deals] : deals
@@ -322,6 +323,33 @@ export default async function DealsPage({
                   </div>
                 )) : <div className="micro">Лента сделки пока пустая.</div>}
               </div>
+            </div>
+
+            <div className="card-subtle stack">
+              <h3 style={{ margin: 0 }}>Аудит изменений</h3>
+              {openAuditTrail.length ? (
+                <div className="lead-task-list">
+                  {openAuditTrail.map((row) => {
+                    const changed = row.changed_fields && typeof row.changed_fields === 'object' ? Object.entries(row.changed_fields) : []
+                    return (
+                      <details key={row.id} className="lead-audit-item">
+                        <summary>
+                          <strong>{row.action === 'insert' ? 'Создание записи' : row.action === 'delete' ? 'Удаление записи' : 'Обновление полей'}</strong>
+                          <span className="micro">{formatDateTime(row.created_at)} · {row.actor?.full_name || row.actor?.email || 'система'}</span>
+                        </summary>
+                        <div className="lead-audit-item__body">
+                          {changed.length ? changed.map(([field, values]) => (
+                            <div key={field} className="lead-audit-change">
+                              <strong>{field}</strong>
+                              <div className="micro" style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(values)}</div>
+                            </div>
+                          )) : <div className="micro">Изменения по полям не требуются для этой операции.</div>}
+                        </div>
+                      </details>
+                    )
+                  })}
+                </div>
+              ) : <div className="micro">Аудит пока пустой.</div>}
             </div>
 
             <div className="card-subtle stack">

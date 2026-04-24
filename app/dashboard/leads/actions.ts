@@ -17,6 +17,28 @@ function numberValue(formData: FormData, key: string) {
   return raw ? Number(raw) : null
 }
 
+type DuplicateLeadCandidate = {
+  id: string
+  owner_user_id: string | null
+  contact_name_raw: string | null
+  status: string
+  converted_deal_id: string | null
+}
+
+async function findDuplicateLead(
+  supabase: Awaited<ReturnType<typeof requireAbility>>['supabase'],
+  params: { leadId?: string | null; phoneRaw?: string | null; emailRaw?: string | null },
+) {
+  const { data } = await supabase.rpc('find_duplicate_lead', {
+    p_lead_id: params.leadId ?? null,
+    p_phone_raw: params.phoneRaw ?? null,
+    p_email_raw: params.emailRaw ?? null,
+  })
+
+  const rows = Array.isArray(data) ? (data as DuplicateLeadCandidate[]) : []
+  return rows[0] ?? null
+}
+
 function refreshLeadPaths(leadId?: string) {
   revalidatePath('/dashboard')
   revalidatePath('/dashboard', 'layout')
@@ -27,12 +49,24 @@ function refreshLeadPaths(leadId?: string) {
 
 export async function createLead(formData: FormData) {
   const { supabase, user } = await requireAbility('/dashboard/leads', 'lead.create')
+  const contactName = value(formData, 'contact_name_raw')
+  const phoneRaw = value(formData, 'phone_raw')
+  const emailRaw = value(formData, 'email_raw') || null
+  const duplicate = await findDuplicateLead(supabase, {
+    phoneRaw,
+    emailRaw,
+  })
+
+  if (duplicate?.id) {
+    const targetPath = duplicate.owner_user_id ? '/dashboard/my-leads' : '/dashboard/leads'
+    redirect(`${targetPath}?open=${encodeURIComponent(duplicate.id)}&error=${encodeURIComponent(`Лид уже существует: ${duplicate.contact_name_raw || 'без имени'}`)}`)
+  }
 
   await supabase.from('leads').insert({
     owner_user_id: user!.id,
-    contact_name_raw: value(formData, 'contact_name_raw'),
-    phone_raw: value(formData, 'phone_raw'),
-    email_raw: value(formData, 'email_raw') || null,
+    contact_name_raw: contactName,
+    phone_raw: phoneRaw,
+    email_raw: emailRaw,
     desired_country: value(formData, 'desired_country') || null,
     source_channel: value(formData, 'source_channel') || 'manual',
     status: 'new',
@@ -149,12 +183,26 @@ export async function updateLeadPersonalInfoAction(formData: FormData) {
     redirect(`/dashboard/my-leads?error=${encodeURIComponent('Редактировать можно только свой лид')}`)
   }
 
+  const contactName = value(formData, 'contact_name_raw') || null
+  const phoneRaw = value(formData, 'phone_raw') || null
+  const emailRaw = value(formData, 'email_raw') || null
+  const duplicate = await findDuplicateLead(supabase, {
+    leadId,
+    phoneRaw,
+    emailRaw,
+  })
+
+  if (duplicate?.id) {
+    const targetPath = duplicate.owner_user_id ? '/dashboard/my-leads' : '/dashboard/leads'
+    redirect(`${targetPath}?open=${encodeURIComponent(duplicate.id)}&error=${encodeURIComponent(`Такой клиент уже есть: ${duplicate.contact_name_raw || 'без имени'}`)}`)
+  }
+
   await supabase
     .from('leads')
     .update({
-      contact_name_raw: value(formData, 'contact_name_raw') || null,
-      phone_raw: value(formData, 'phone_raw') || null,
-      email_raw: value(formData, 'email_raw') || null,
+      contact_name_raw: contactName,
+      phone_raw: phoneRaw,
+      email_raw: emailRaw,
       desired_country: value(formData, 'desired_country') || null,
       source_detail: value(formData, 'source_detail') || null,
       message: value(formData, 'message') || null,
