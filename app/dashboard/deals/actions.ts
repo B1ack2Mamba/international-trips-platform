@@ -174,6 +174,25 @@ export async function createDeal(formData: FormData) {
     notes: optionalValue(formData, 'notes'),
   }
 
+  if (payload.lead_id) {
+    const { data: existingDeal } = await supabase
+      .from('deals')
+      .select('id')
+      .eq('lead_id', payload.lead_id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle<{ id: string }>()
+
+    if (existingDeal?.id) {
+      refreshDealPaths(existingDeal.id)
+      redirect(
+        `/dashboard/deals?open=${encodeURIComponent(existingDeal.id)}&existing=${encodeURIComponent(existingDeal.id)}&error=${encodeURIComponent(
+          'По этому лиду уже есть сделка',
+        )}#deal-editor`,
+      )
+    }
+  }
+
   let insertedId: string | null = null
   let insertError: string | null = null
 
@@ -403,6 +422,27 @@ export async function completeDealPaymentAndMoveAction(formData: FormData) {
   const { supabase } = await requireAbility('/dashboard/deals', 'deal.application_create')
   const dealId = value(formData, 'deal_id')
   const reader = hasServiceRole() ? createAdminClient() : supabase
+
+  const { data: existingApplication } = await reader
+    .from('applications')
+    .select('id, departure_id')
+    .eq('deal_id', dealId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle<{ id: string; departure_id: string | null }>()
+
+  if (existingApplication?.id) {
+    await supabase.from('deals').update({ stage: 'won' }).eq('id', dealId)
+    await closeDealAutomationTasks({
+      supabase,
+      dealId,
+      automationKeys: ['deal_prepare_contract', 'deal_collect_payment', 'deal_create_application'],
+    })
+    refreshDealPaths(dealId, existingApplication.id, existingApplication.departure_id)
+    redirect(
+      `/dashboard/applications?deal_id=${encodeURIComponent(dealId)}&existing=${encodeURIComponent(existingApplication.id)}&from=deal&paid=1`,
+    )
+  }
 
   const { data: deal, error: dealError } = await reader
     .from('deals')

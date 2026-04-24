@@ -60,6 +60,7 @@ export type DashboardModuleKey =
   | 'finance'
   | 'settings'
   | 'spaces'
+  | 'system'
 
 export type DashboardNavItem = {
   key: DashboardModuleKey
@@ -97,6 +98,7 @@ export const ACTIVE_DASHBOARD_MODULE_KEYS = [
   'ops',
   'finance',
   'controlling',
+  'system',
 ] as const satisfies readonly DashboardModuleKey[]
 
 const ACTIVE_DASHBOARD_MODULE_KEY_SET = new Set<DashboardModuleKey>(ACTIVE_DASHBOARD_MODULE_KEYS)
@@ -371,6 +373,15 @@ const DASHBOARD_MODULES: readonly DashboardModuleDefinition[] = [
     roles: financePageRoles,
   },
   {
+    key: 'system',
+    routePath: '/dashboard/system',
+    href: '/dashboard/system',
+    label: 'Система',
+    description: 'Сбои интеграций, зависшие процессы и точки, где данные требуют ручного внимания.',
+    groupTitle: 'Деньги и система',
+    roles: ['owner', 'admin', 'backoffice', 'finance', 'controlling', 'ops_manager'] as const,
+  },
+  {
     key: 'settings',
     routePath: '/dashboard/settings',
     href: '/dashboard/settings',
@@ -414,7 +425,7 @@ const NAV_GROUP_BLUEPRINT = [
   { title: 'Продажи', keys: ['leads', 'my_leads', 'deals', 'accounts', 'contracts', 'scripts'] },
   { title: 'Партнёры', keys: ['partners'] },
   { title: 'Продукт и выезды', keys: ['programs', 'departures', 'ops'] },
-  { title: 'Финансы', keys: ['finance', 'controlling'] },
+  { title: 'Финансы', keys: ['finance', 'controlling', 'system'] },
 ] as const satisfies readonly { title: string; keys: readonly DashboardModuleKey[] }[]
 
 export function getDashboardNavGroups(role?: string | null, allowedKeys?: readonly DashboardModuleKey[]) {

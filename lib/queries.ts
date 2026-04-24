@@ -1136,6 +1136,25 @@ export type GlobalSearchResults = {
   applications: GlobalSearchApplicationResult[]
 }
 
+export type SystemIssueRow = {
+  id: string
+  kind: 'message_failed' | 'message_stuck' | 'call_failed' | 'contract_waiting' | 'inbox_unhandled'
+  title: string
+  detail: string
+  href: string
+  created_at: string
+  tone: 'danger' | 'warning'
+}
+
+export type SystemOpsSummary = {
+  failed_messages: number
+  stuck_messages: number
+  failed_calls: number
+  stale_contracts: number
+  stale_inbox: number
+  items: SystemIssueRow[]
+}
+
 function taskDueDate(task: TaskRow) {
   if (!task.due_date) return null
   const date = new Date(task.due_date)
@@ -1267,6 +1286,117 @@ export async function searchGlobalWorkspace(query: string, limit = 8): Promise<G
     deals: asRows<GlobalSearchDealResult>(dealsRes.data).map((row) => ({ ...row, lead: firstRelation(row.lead), account: firstRelation(row.account) })),
     contracts: asRows<GlobalSearchContractResult>(contractsRes.data).map((row) => ({ ...row, deal: firstRelation(row.deal), application: firstRelation(row.application) })),
     applications: asRows<GlobalSearchApplicationResult>(applicationsRes.data).map((row) => ({ ...row, deal: firstRelation(row.deal) })),
+  }
+}
+
+export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary> {
+  const supabase = await createClient()
+  const now = Date.now()
+  const dayAgo = new Date(now - 24 * 60 * 60 * 1000).toISOString()
+  const twoHoursAgo = new Date(now - 2 * 60 * 60 * 1000).toISOString()
+
+  const [failedMessagesRes, stuckMessagesRes, failedCallsRes, staleContractsRes, staleInboxRes] = await Promise.all([
+    supabase
+      .from('message_outbox')
+      .select('id, channel, recipient_name, subject, last_error, created_at')
+      .eq('status', 'failed')
+      .order('created_at', { ascending: false })
+      .limit(limit),
+    supabase
+      .from('message_outbox')
+      .select('id, channel, recipient_name, subject, created_at, send_after')
+      .in('status', ['queued', 'processing'])
+      .lt('send_after', twoHoursAgo)
+      .order('send_after', { ascending: true })
+      .limit(limit),
+    supabase
+      .from('call_logs')
+      .select('id, display_number, request_description, last_error, created_at')
+      .eq('status', 'failed')
+      .order('created_at', { ascending: false })
+      .limit(limit),
+    supabase
+      .from('contracts')
+      .select('id, title, status, created_at, application:applications(id, participant_name)')
+      .in('status', ['ready', 'sent', 'viewed'])
+      .lt('created_at', dayAgo)
+      .order('created_at', { ascending: false })
+      .limit(limit),
+    supabase
+      .from('message_inbox')
+      .select('id, sender_name, subject, received_at, lead_id')
+      .neq('status', 'handled')
+      .lt('received_at', dayAgo)
+      .order('received_at', { ascending: false })
+      .limit(limit),
+  ])
+
+  const failedMessages = asRows<{ id: string; channel: string | null; recipient_name: string | null; subject: string | null; last_error: string | null; created_at: string }>(failedMessagesRes.data)
+  const stuckMessages = asRows<{ id: string; channel: string | null; recipient_name: string | null; subject: string | null; created_at: string; send_after: string | null }>(stuckMessagesRes.data)
+  const failedCalls = asRows<{ id: string; display_number: string | null; request_description: string | null; last_error: string | null; created_at: string }>(failedCallsRes.data)
+  const staleContracts = asRows<{ id: string; title: string; status: string; created_at: string; application?: { id: string; participant_name: string | null } | { id: string; participant_name: string | null }[] | null }>(staleContractsRes.data)
+  const staleInbox = asRows<{ id: string; sender_name: string | null; subject: string | null; received_at: string | null; lead_id: string | null }>(staleInboxRes.data)
+
+  const items: SystemIssueRow[] = [
+    ...failedMessages.map((row) => ({
+      id: `message-failed-${row.id}`,
+      kind: 'message_failed' as const,
+      title: row.recipient_name || row.subject || 'Сообщение упало',
+      detail: row.last_error || row.channel || 'Ошибка доставки',
+      href: '/dashboard/communications',
+      created_at: row.created_at,
+      tone: 'danger' as const,
+    })),
+    ...stuckMessages.map((row) => ({
+      id: `message-stuck-${row.id}`,
+      kind: 'message_stuck' as const,
+      title: row.recipient_name || row.subject || 'Сообщение зависло',
+      detail: `Очередь не обработана с ${row.send_after || row.created_at}`,
+      href: '/dashboard/communications',
+      created_at: row.created_at,
+      tone: 'warning' as const,
+    })),
+    ...failedCalls.map((row) => ({
+      id: `call-failed-${row.id}`,
+      kind: 'call_failed' as const,
+      title: row.request_description || 'Сбой звонка',
+      detail: row.last_error || 'Ошибка телефонии',
+      href: '/dashboard/communications',
+      created_at: row.created_at,
+      tone: 'danger' as const,
+    })),
+    ...staleContracts.map((row) => {
+      const application = firstRelation(row.application)
+      return {
+        id: `contract-stale-${row.id}`,
+        kind: 'contract_waiting' as const,
+        title: application?.participant_name || row.title || 'Договор ждёт подписи',
+        detail: `Статус: ${row.status}`,
+        href: `/dashboard/contracts/${row.id}`,
+        created_at: row.created_at,
+        tone: 'warning' as const,
+      }
+    }),
+    ...staleInbox.map((row) => ({
+      id: `inbox-stale-${row.id}`,
+      kind: 'inbox_unhandled' as const,
+      title: row.sender_name || row.subject || 'Неотработанное сообщение',
+      detail: 'Входящее висит без ответа больше суток',
+      href: row.lead_id ? `/dashboard/my-leads?open=${row.lead_id}#lead-communications` : '/dashboard/communications',
+      created_at: row.received_at || new Date().toISOString(),
+      tone: 'warning' as const,
+    })),
+  ]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, limit)
+
+  return {
+    failed_messages: failedMessages.length,
+    stuck_messages: stuckMessages.length,
+    failed_calls: failedCalls.length,
+    stale_contracts: staleContracts.length,
+    stale_inbox: staleInbox.length,
+    items,
   }
 }
 

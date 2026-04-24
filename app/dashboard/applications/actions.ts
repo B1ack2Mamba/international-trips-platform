@@ -190,6 +190,19 @@ export async function createPaymentForApplicationAction(formData: FormData) {
 export async function createContractFromApplicationAction(formData: FormData) {
   const { supabase } = await requireAbility('/dashboard/applications', 'application.contract_create')
   const applicationId = value(formData, 'application_id')
+  const { data: existingContract } = await supabase
+    .from('contracts')
+    .select('id')
+    .eq('application_id', applicationId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle<{ id: string }>()
+
+  if (existingContract?.id) {
+    refreshApplicationPaths(applicationId, existingContract.id)
+    redirect(`/dashboard/contracts/${existingContract.id}`)
+  }
+
   const { data, error } = await supabase.rpc('create_contract_from_application', {
     p_application_id: applicationId,
     p_template_code: value(formData, 'template_code') || 'family_standard',

@@ -71,6 +71,19 @@ export async function createContractForDealAction(formData: FormData) {
     applicationId = String(created.data)
   }
 
+  const { data: existingContract } = await supabase
+    .from('contracts')
+    .select('id')
+    .eq('application_id', applicationId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle<{ id: string }>()
+
+  if (existingContract?.id) {
+    refreshContractPaths(existingContract.id, applicationId)
+    redirect(`/dashboard/contracts/${existingContract.id}`)
+  }
+
   const { data: contractId, error } = await supabase.rpc('create_contract_from_application', {
     p_application_id: applicationId,
     p_template_code: templateCode,
