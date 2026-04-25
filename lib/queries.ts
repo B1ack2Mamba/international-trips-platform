@@ -1154,7 +1154,10 @@ export type SystemIssueRow = {
   tone: 'danger' | 'warning'
   entity_id?: string | null
   lead_id?: string | null
+  owner_name?: string | null
   primary_action?: 'requeue_outbox' | 'mark_inbox_handled' | null
+  quick_action_href?: string | null
+  quick_action_label?: string | null
 }
 
 export type SystemOpsSummary = {
@@ -1327,27 +1330,27 @@ export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary>
       .limit(limit),
     supabase
       .from('call_logs')
-      .select('id, display_number, request_description, last_error, created_at')
+      .select('id, display_number, request_description, last_error, created_at, owner:profiles!call_logs_owner_user_id_fkey(full_name, email)')
       .eq('status', 'failed')
       .order('created_at', { ascending: false })
       .limit(limit),
     supabase
       .from('contracts')
-      .select('id, title, status, created_at, application:applications(id, participant_name)')
+      .select('id, title, status, created_at, application:applications(id, participant_name), deal:deals!contracts_deal_id_fkey(owner:profiles(full_name, email))')
       .in('status', ['ready', 'sent', 'viewed'])
       .lt('created_at', dayAgo)
       .order('created_at', { ascending: false })
       .limit(limit),
     supabase
       .from('message_inbox')
-      .select('id, sender_name, subject, received_at, lead_id')
+      .select('id, sender_name, subject, received_at, lead_id, lead:leads(owner:profiles(full_name, email))')
       .neq('status', 'handled')
       .lt('received_at', dayAgo)
       .order('received_at', { ascending: false })
       .limit(limit),
     supabase
       .from('deals')
-      .select('id, title, stage, estimated_value, currency, created_at')
+      .select('id, title, stage, estimated_value, currency, created_at, owner:profiles(full_name, email)')
       .in('stage', ['qualified', 'proposal', 'negotiation'])
       .lt('created_at', twoDaysAgo)
       .order('created_at', { ascending: false })
@@ -1356,10 +1359,39 @@ export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary>
 
   const failedMessages = asRows<{ id: string; channel: string | null; recipient_name: string | null; subject: string | null; last_error: string | null; created_at: string }>(failedMessagesRes.data)
   const stuckMessages = asRows<{ id: string; channel: string | null; recipient_name: string | null; subject: string | null; created_at: string; send_after: string | null }>(stuckMessagesRes.data)
-  const failedCalls = asRows<{ id: string; display_number: string | null; request_description: string | null; last_error: string | null; created_at: string }>(failedCallsRes.data)
-  const staleContracts = asRows<{ id: string; title: string; status: string; created_at: string; application?: { id: string; participant_name: string | null } | { id: string; participant_name: string | null }[] | null }>(staleContractsRes.data)
-  const staleInbox = asRows<{ id: string; sender_name: string | null; subject: string | null; received_at: string | null; lead_id: string | null }>(staleInboxRes.data)
-  const staleDeals = asRows<{ id: string; title: string; stage: string; estimated_value: number | null; currency: string | null; created_at: string }>(staleDealsRes.data)
+  const failedCalls = asRows<{
+    id: string
+    display_number: string | null
+    request_description: string | null
+    last_error: string | null
+    created_at: string
+    owner?: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null
+  }>(failedCallsRes.data)
+  const staleContracts = asRows<{
+    id: string
+    title: string
+    status: string
+    created_at: string
+    application?: { id: string; participant_name: string | null } | { id: string; participant_name: string | null }[] | null
+    deal?: { owner?: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null } | { owner?: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null }[] | null
+  }>(staleContractsRes.data)
+  const staleInbox = asRows<{
+    id: string
+    sender_name: string | null
+    subject: string | null
+    received_at: string | null
+    lead_id: string | null
+    lead?: { owner?: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null } | { owner?: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null }[] | null
+  }>(staleInboxRes.data)
+  const staleDeals = asRows<{
+    id: string
+    title: string
+    stage: string
+    estimated_value: number | null
+    currency: string | null
+    created_at: string
+    owner?: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null
+  }>(staleDealsRes.data)
   const flowByDealId = await getDealFlowSummaries(staleDeals.map((deal) => deal.id))
 
   const blockedDealCandidates = staleDeals
@@ -1367,6 +1399,8 @@ export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary>
       const flow = flowByDealId[deal.id]
       const paymentAmount = flow?.payment_amount || Number(deal.estimated_value ?? 0) || 0
       const paidAmount = flow?.payment_paid_amount || 0
+      const owner = firstRelation(deal.owner)
+      const ownerName = owner?.full_name || owner?.email || null
 
       if (!flow?.contract_id) {
         return {
@@ -1378,6 +1412,9 @@ export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary>
           created_at: deal.created_at,
           tone: 'danger' as const,
           entity_id: deal.id,
+          owner_name: ownerName,
+          quick_action_href: `/dashboard/contracts?deal_id=${deal.id}`,
+          quick_action_label: 'Создать договор',
         }
       }
 
@@ -1391,6 +1428,9 @@ export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary>
           created_at: flow.contract_signed_at || deal.created_at,
           tone: paidAmount > 0 ? 'warning' as const : 'danger' as const,
           entity_id: deal.id,
+          owner_name: ownerName,
+          quick_action_href: `/dashboard/deals?open=${deal.id}&pay=1#deal-payment-popover`,
+          quick_action_label: paidAmount > 0 ? 'Доплата' : 'Внести оплату',
         }
       }
 
@@ -1404,6 +1444,9 @@ export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary>
           created_at: flow.contract_signed_at || deal.created_at,
           tone: 'warning' as const,
           entity_id: deal.id,
+          owner_name: ownerName,
+          quick_action_href: `/dashboard/deals?open=${deal.id}&pay=1#deal-payment-popover`,
+          quick_action_label: 'Создать участника',
         }
       }
 
@@ -1426,6 +1469,7 @@ export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary>
       tone: 'danger' as const,
       entity_id: row.id,
       primary_action: 'requeue_outbox' as const,
+      owner_name: null,
     })),
     ...stuckMessages.map((row) => ({
       id: `message-stuck-${row.id}`,
@@ -1437,19 +1481,26 @@ export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary>
       tone: 'warning' as const,
       entity_id: row.id,
       primary_action: 'requeue_outbox' as const,
+      owner_name: null,
     })),
-    ...failedCalls.map((row) => ({
-      id: `call-failed-${row.id}`,
-      kind: 'call_failed' as const,
-      title: row.request_description || 'Сбой звонка',
-      detail: row.last_error || 'Ошибка телефонии',
-      href: '/dashboard/communications',
-      created_at: row.created_at,
-      tone: 'danger' as const,
-      entity_id: row.id,
-    })),
+    ...failedCalls.map((row) => {
+      const owner = firstRelation(row.owner)
+      return {
+        id: `call-failed-${row.id}`,
+        kind: 'call_failed' as const,
+        title: row.request_description || 'Сбой звонка',
+        detail: row.last_error || 'Ошибка телефонии',
+        href: '/dashboard/communications',
+        created_at: row.created_at,
+        tone: 'danger' as const,
+        entity_id: row.id,
+        owner_name: owner?.full_name || owner?.email || null,
+      }
+    }),
     ...staleContracts.map((row) => {
       const application = firstRelation(row.application)
+      const deal = firstRelation(row.deal)
+      const owner = firstRelation(deal?.owner)
       return {
         id: `contract-stale-${row.id}`,
         kind: 'contract_waiting' as const,
@@ -1459,20 +1510,28 @@ export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary>
         created_at: row.created_at,
         tone: 'warning' as const,
         entity_id: row.id,
+        owner_name: owner?.full_name || owner?.email || null,
+        quick_action_href: `/dashboard/contracts/${row.id}`,
+        quick_action_label: 'Открыть договор',
       }
     }),
-    ...staleInbox.map((row) => ({
-      id: `inbox-stale-${row.id}`,
-      kind: 'inbox_unhandled' as const,
-      title: row.sender_name || row.subject || 'Неотработанное сообщение',
-      detail: 'Входящее висит без ответа больше суток',
-      href: row.lead_id ? `/dashboard/my-leads?open=${row.lead_id}#lead-communications` : '/dashboard/communications',
-      created_at: row.received_at || new Date().toISOString(),
-      tone: 'warning' as const,
-      entity_id: row.id,
-      lead_id: row.lead_id,
-      primary_action: 'mark_inbox_handled' as const,
-    })),
+    ...staleInbox.map((row) => {
+      const lead = firstRelation(row.lead)
+      const owner = firstRelation(lead?.owner)
+      return {
+        id: `inbox-stale-${row.id}`,
+        kind: 'inbox_unhandled' as const,
+        title: row.sender_name || row.subject || 'Неотработанное сообщение',
+        detail: 'Входящее висит без ответа больше суток',
+        href: row.lead_id ? `/dashboard/my-leads?open=${row.lead_id}#lead-communications` : '/dashboard/communications',
+        created_at: row.received_at || new Date().toISOString(),
+        tone: 'warning' as const,
+        entity_id: row.id,
+        lead_id: row.lead_id,
+        primary_action: 'mark_inbox_handled' as const,
+        owner_name: owner?.full_name || owner?.email || null,
+      }
+    }),
     ...blockedDeals,
   ]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())

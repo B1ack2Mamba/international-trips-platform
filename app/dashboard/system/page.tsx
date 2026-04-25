@@ -154,10 +154,11 @@ export default async function SystemPage({
                 <tr>
                   <th>Тип</th>
                   <th>Объект</th>
+                  <th>Ответственный</th>
                   <th>Детали</th>
                   <th>SLA</th>
                   <th>Когда</th>
-                  <th>Открыть</th>
+                  <th>Действия</th>
                 </tr>
               </thead>
               <tbody>
@@ -171,12 +172,16 @@ export default async function SystemPage({
                     <td>
                       <div><strong>{item.title}</strong></div>
                     </td>
+                    <td>{item.owner_name || 'Не назначен'}</td>
                     <td>{item.detail}</td>
                     <td>{slaLabel(item.created_at)}</td>
                     <td>{formatDateTime(item.created_at)}</td>
                     <td>
                       <div className="form-actions">
                         <Link href={item.href}>Открыть</Link>
+                        {item.quick_action_href && item.quick_action_label ? (
+                          <Link className="button-secondary" href={item.quick_action_href}>{item.quick_action_label}</Link>
+                        ) : null}
                         {canManageOutbox && item.primary_action === 'requeue_outbox' && item.entity_id ? (
                           <form action={requeueOutboxMessageAction}>
                             <input type="hidden" name="message_id" value={item.entity_id} />
@@ -196,7 +201,7 @@ export default async function SystemPage({
                 ))}
                 {!filteredItems.length ? (
                   <tr>
-                    <td colSpan={6}>По этому фильтру проблем сейчас нет.</td>
+                    <td colSpan={7}>По этому фильтру проблем сейчас нет.</td>
                   </tr>
                 ) : null}
               </tbody>
