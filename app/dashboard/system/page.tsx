@@ -57,6 +57,11 @@ const FILTERS = [
   { key: 'contracts', label: 'Договоры' },
 ] as const
 
+const SCOPE_FILTERS = [
+  { key: 'all', label: 'Все проблемы' },
+  { key: 'mine', label: 'Мои проблемы' },
+] as const
+
 function matchesFilter(
   filter: (typeof FILTERS)[number]['key'],
   item: { kind: SystemKind; tone: 'danger' | 'warning' },
@@ -99,8 +104,23 @@ export default async function SystemPage({
   const summary = await getSystemOpsSummary()
   const canManageOutbox = canPerform(profile?.role, 'communication.outbox_manage')
   const filterParam = typeof params.filter === 'string' ? params.filter : 'all'
+  const scopeParam = typeof params.scope === 'string' ? params.scope : 'all'
+  const ownerParam = typeof params.owner === 'string' ? params.owner : 'all'
   const filter: (typeof FILTERS)[number]['key'] = FILTERS.some((item) => item.key === filterParam) ? filterParam as (typeof FILTERS)[number]['key'] : 'all'
-  const filteredItems = summary.items.filter((item) => matchesFilter(filter, item))
+  const scope: (typeof SCOPE_FILTERS)[number]['key'] = SCOPE_FILTERS.some((item) => item.key === scopeParam) ? scopeParam as (typeof SCOPE_FILTERS)[number]['key'] : 'all'
+  const ownerOptions = Array.from(
+    new Map(
+      summary.items
+        .filter((item) => item.owner_id && item.owner_name)
+        .map((item) => [item.owner_id as string, { id: item.owner_id as string, name: item.owner_name as string }]),
+    ).values(),
+  ).sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+  const filteredItems = summary.items.filter((item) => {
+    if (!matchesFilter(filter, item)) return false
+    if (scope === 'mine' && item.owner_id !== profile?.id) return false
+    if (ownerParam !== 'all' && item.owner_id !== ownerParam) return false
+    return true
+  })
 
   return (
     <div className="content-stack">
@@ -139,14 +159,64 @@ export default async function SystemPage({
             <span className="badge">{filteredItems.length}</span>
           </div>
           <div className="badge-row">
-            {FILTERS.map((item) => {
-              const count = summary.items.filter((row) => matchesFilter(item.key, row)).length
+            {SCOPE_FILTERS.map((item) => {
+              const count = summary.items.filter((row) => (item.key === 'mine' ? row.owner_id === profile?.id : true)).length
+              const href = `/dashboard/system?scope=${item.key}${filter !== 'all' ? `&filter=${filter}` : ''}${ownerParam !== 'all' ? `&owner=${ownerParam}` : ''}`
               return (
-                <Link key={item.key} href={`/dashboard/system${item.key === 'all' ? '' : `?filter=${item.key}`}`} className={`badge ${filter === item.key ? 'success' : ''}`}>
+                <Link key={item.key} href={href} className={`badge ${scope === item.key ? 'success' : ''}`}>
                   {item.label}: {count}
                 </Link>
               )
             })}
+          </div>
+          <div className="badge-row">
+            {FILTERS.map((item) => {
+              const count = summary.items.filter((row) => {
+                if (!matchesFilter(item.key, row)) return false
+                if (scope === 'mine' && row.owner_id !== profile?.id) return false
+                if (ownerParam !== 'all' && row.owner_id !== ownerParam) return false
+                return true
+              }).length
+              const query = new URLSearchParams()
+              if (item.key !== 'all') query.set('filter', item.key)
+              if (scope !== 'all') query.set('scope', scope)
+              if (ownerParam !== 'all') query.set('owner', ownerParam)
+              return (
+                <Link key={item.key} href={`/dashboard/system${query.toString() ? `?${query.toString()}` : ''}`} className={`badge ${filter === item.key ? 'success' : ''}`}>
+                  {item.label}: {count}
+                </Link>
+              )
+            })}
+            {ownerOptions.map((owner) => {
+              const query = new URLSearchParams()
+              if (filter !== 'all') query.set('filter', filter)
+              if (scope !== 'all') query.set('scope', scope)
+              query.set('owner', owner.id)
+              const count = summary.items.filter((row) => {
+                if (row.owner_id !== owner.id) return false
+                if (!matchesFilter(filter, row)) return false
+                if (scope === 'mine' && row.owner_id !== profile?.id) return false
+                return true
+              }).length
+              return (
+                <Link key={owner.id} href={`/dashboard/system?${query.toString()}`} className={`badge ${ownerParam === owner.id ? 'success' : ''}`}>
+                  {owner.name}: {count}
+                </Link>
+              )
+            })}
+            {ownerParam !== 'all' ? (
+              <Link
+                href={`/dashboard/system${(() => {
+                  const query = new URLSearchParams()
+                  if (filter !== 'all') query.set('filter', filter)
+                  if (scope !== 'all') query.set('scope', scope)
+                  return query.toString() ? `?${query.toString()}` : ''
+                })()}`}
+                className="badge"
+              >
+                Сбросить владельца
+              </Link>
+            ) : null}
           </div>
           <div className="table-wrap">
             <table className="table">

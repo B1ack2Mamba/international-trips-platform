@@ -1154,6 +1154,7 @@ export type SystemIssueRow = {
   tone: 'danger' | 'warning'
   entity_id?: string | null
   lead_id?: string | null
+  owner_id?: string | null
   owner_name?: string | null
   primary_action?: 'requeue_outbox' | 'mark_inbox_handled' | null
   quick_action_href?: string | null
@@ -1330,27 +1331,27 @@ export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary>
       .limit(limit),
     supabase
       .from('call_logs')
-      .select('id, display_number, request_description, last_error, created_at, owner:profiles!call_logs_owner_user_id_fkey(full_name, email)')
+      .select('id, display_number, request_description, last_error, created_at, owner:profiles!call_logs_owner_user_id_fkey(id, full_name, email)')
       .eq('status', 'failed')
       .order('created_at', { ascending: false })
       .limit(limit),
     supabase
       .from('contracts')
-      .select('id, title, status, created_at, application:applications(id, participant_name), deal:deals!contracts_deal_id_fkey(owner:profiles(full_name, email))')
+      .select('id, title, status, created_at, application:applications(id, participant_name), deal:deals!contracts_deal_id_fkey(owner:profiles(id, full_name, email))')
       .in('status', ['ready', 'sent', 'viewed'])
       .lt('created_at', dayAgo)
       .order('created_at', { ascending: false })
       .limit(limit),
     supabase
       .from('message_inbox')
-      .select('id, sender_name, subject, received_at, lead_id, lead:leads(owner:profiles(full_name, email))')
+      .select('id, sender_name, subject, received_at, lead_id, lead:leads(owner:profiles(id, full_name, email))')
       .neq('status', 'handled')
       .lt('received_at', dayAgo)
       .order('received_at', { ascending: false })
       .limit(limit),
     supabase
       .from('deals')
-      .select('id, title, stage, estimated_value, currency, created_at, owner:profiles(full_name, email)')
+      .select('id, title, stage, estimated_value, currency, created_at, owner:profiles(id, full_name, email)')
       .in('stage', ['qualified', 'proposal', 'negotiation'])
       .lt('created_at', twoDaysAgo)
       .order('created_at', { ascending: false })
@@ -1365,7 +1366,7 @@ export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary>
     request_description: string | null
     last_error: string | null
     created_at: string
-    owner?: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null
+    owner?: { id: string; full_name: string | null; email: string | null } | { id: string; full_name: string | null; email: string | null }[] | null
   }>(failedCallsRes.data)
   const staleContracts = asRows<{
     id: string
@@ -1373,7 +1374,7 @@ export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary>
     status: string
     created_at: string
     application?: { id: string; participant_name: string | null } | { id: string; participant_name: string | null }[] | null
-    deal?: { owner?: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null } | { owner?: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null }[] | null
+    deal?: { owner?: { id: string; full_name: string | null; email: string | null } | { id: string; full_name: string | null; email: string | null }[] | null } | { owner?: { id: string; full_name: string | null; email: string | null } | { id: string; full_name: string | null; email: string | null }[] | null }[] | null
   }>(staleContractsRes.data)
   const staleInbox = asRows<{
     id: string
@@ -1381,7 +1382,7 @@ export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary>
     subject: string | null
     received_at: string | null
     lead_id: string | null
-    lead?: { owner?: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null } | { owner?: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null }[] | null
+    lead?: { owner?: { id: string; full_name: string | null; email: string | null } | { id: string; full_name: string | null; email: string | null }[] | null } | { owner?: { id: string; full_name: string | null; email: string | null } | { id: string; full_name: string | null; email: string | null }[] | null }[] | null
   }>(staleInboxRes.data)
   const staleDeals = asRows<{
     id: string
@@ -1390,7 +1391,7 @@ export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary>
     estimated_value: number | null
     currency: string | null
     created_at: string
-    owner?: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null
+    owner?: { id: string; full_name: string | null; email: string | null } | { id: string; full_name: string | null; email: string | null }[] | null
   }>(staleDealsRes.data)
   const flowByDealId = await getDealFlowSummaries(staleDeals.map((deal) => deal.id))
 
@@ -1400,6 +1401,7 @@ export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary>
       const paymentAmount = flow?.payment_amount || Number(deal.estimated_value ?? 0) || 0
       const paidAmount = flow?.payment_paid_amount || 0
       const owner = firstRelation(deal.owner)
+      const ownerId = owner?.id ?? null
       const ownerName = owner?.full_name || owner?.email || null
 
       if (!flow?.contract_id) {
@@ -1412,6 +1414,7 @@ export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary>
           created_at: deal.created_at,
           tone: 'danger' as const,
           entity_id: deal.id,
+          owner_id: ownerId,
           owner_name: ownerName,
           quick_action_href: `/dashboard/contracts?deal_id=${deal.id}`,
           quick_action_label: 'Создать договор',
@@ -1428,6 +1431,7 @@ export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary>
           created_at: flow.contract_signed_at || deal.created_at,
           tone: paidAmount > 0 ? 'warning' as const : 'danger' as const,
           entity_id: deal.id,
+          owner_id: ownerId,
           owner_name: ownerName,
           quick_action_href: `/dashboard/deals?open=${deal.id}&pay=1#deal-payment-popover`,
           quick_action_label: paidAmount > 0 ? 'Доплата' : 'Внести оплату',
@@ -1444,6 +1448,7 @@ export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary>
           created_at: flow.contract_signed_at || deal.created_at,
           tone: 'warning' as const,
           entity_id: deal.id,
+          owner_id: ownerId,
           owner_name: ownerName,
           quick_action_href: `/dashboard/deals?open=${deal.id}&pay=1#deal-payment-popover`,
           quick_action_label: 'Создать участника',
@@ -1468,6 +1473,7 @@ export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary>
       created_at: row.created_at,
       tone: 'danger' as const,
       entity_id: row.id,
+      owner_id: null,
       primary_action: 'requeue_outbox' as const,
       owner_name: null,
     })),
@@ -1480,6 +1486,7 @@ export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary>
       created_at: row.created_at,
       tone: 'warning' as const,
       entity_id: row.id,
+      owner_id: null,
       primary_action: 'requeue_outbox' as const,
       owner_name: null,
     })),
@@ -1494,6 +1501,7 @@ export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary>
         created_at: row.created_at,
         tone: 'danger' as const,
         entity_id: row.id,
+        owner_id: owner?.id ?? null,
         owner_name: owner?.full_name || owner?.email || null,
       }
     }),
@@ -1510,6 +1518,7 @@ export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary>
         created_at: row.created_at,
         tone: 'warning' as const,
         entity_id: row.id,
+        owner_id: owner?.id ?? null,
         owner_name: owner?.full_name || owner?.email || null,
         quick_action_href: `/dashboard/contracts/${row.id}`,
         quick_action_label: 'Открыть договор',
@@ -1528,6 +1537,7 @@ export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary>
         tone: 'warning' as const,
         entity_id: row.id,
         lead_id: row.lead_id,
+        owner_id: owner?.id ?? null,
         primary_action: 'mark_inbox_handled' as const,
         owner_name: owner?.full_name || owner?.email || null,
       }
