@@ -1138,7 +1138,15 @@ export type GlobalSearchResults = {
 
 export type SystemIssueRow = {
   id: string
-  kind: 'message_failed' | 'message_stuck' | 'call_failed' | 'contract_waiting' | 'inbox_unhandled'
+  kind:
+    | 'message_failed'
+    | 'message_stuck'
+    | 'call_failed'
+    | 'contract_waiting'
+    | 'inbox_unhandled'
+    | 'deal_contract_blocked'
+    | 'deal_payment_blocked'
+    | 'deal_application_blocked'
   title: string
   detail: string
   href: string
@@ -1155,6 +1163,10 @@ export type SystemOpsSummary = {
   failed_calls: number
   stale_contracts: number
   stale_inbox: number
+  stale_deals: number
+  blocked_deals_without_contract: number
+  blocked_deals_without_payment: number
+  blocked_deals_without_application: number
   items: SystemIssueRow[]
 }
 
@@ -1297,8 +1309,9 @@ export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary>
   const now = Date.now()
   const dayAgo = new Date(now - 24 * 60 * 60 * 1000).toISOString()
   const twoHoursAgo = new Date(now - 2 * 60 * 60 * 1000).toISOString()
+  const twoDaysAgo = new Date(now - 2 * 24 * 60 * 60 * 1000).toISOString()
 
-  const [failedMessagesRes, stuckMessagesRes, failedCallsRes, staleContractsRes, staleInboxRes] = await Promise.all([
+  const [failedMessagesRes, stuckMessagesRes, failedCallsRes, staleContractsRes, staleInboxRes, staleDealsRes] = await Promise.all([
     supabase
       .from('message_outbox')
       .select('id, channel, recipient_name, subject, last_error, created_at')
@@ -1332,6 +1345,13 @@ export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary>
       .lt('received_at', dayAgo)
       .order('received_at', { ascending: false })
       .limit(limit),
+    supabase
+      .from('deals')
+      .select('id, title, stage, estimated_value, currency, created_at')
+      .in('stage', ['qualified', 'proposal', 'negotiation'])
+      .lt('created_at', twoDaysAgo)
+      .order('created_at', { ascending: false })
+      .limit(limit * 2),
   ])
 
   const failedMessages = asRows<{ id: string; channel: string | null; recipient_name: string | null; subject: string | null; last_error: string | null; created_at: string }>(failedMessagesRes.data)
@@ -1339,6 +1359,61 @@ export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary>
   const failedCalls = asRows<{ id: string; display_number: string | null; request_description: string | null; last_error: string | null; created_at: string }>(failedCallsRes.data)
   const staleContracts = asRows<{ id: string; title: string; status: string; created_at: string; application?: { id: string; participant_name: string | null } | { id: string; participant_name: string | null }[] | null }>(staleContractsRes.data)
   const staleInbox = asRows<{ id: string; sender_name: string | null; subject: string | null; received_at: string | null; lead_id: string | null }>(staleInboxRes.data)
+  const staleDeals = asRows<{ id: string; title: string; stage: string; estimated_value: number | null; currency: string | null; created_at: string }>(staleDealsRes.data)
+  const flowByDealId = await getDealFlowSummaries(staleDeals.map((deal) => deal.id))
+
+  const blockedDealCandidates = staleDeals
+    .map((deal) => {
+      const flow = flowByDealId[deal.id]
+      const paymentAmount = flow?.payment_amount || Number(deal.estimated_value ?? 0) || 0
+      const paidAmount = flow?.payment_paid_amount || 0
+
+      if (!flow?.contract_id) {
+        return {
+          id: `deal-contract-${deal.id}`,
+          kind: 'deal_contract_blocked' as const,
+          title: deal.title || 'Сделка без названия',
+          detail: `Стадия ${deal.stage}: договор не создан`,
+          href: `/dashboard/deals?open=${deal.id}#deal-editor`,
+          created_at: deal.created_at,
+          tone: 'danger' as const,
+          entity_id: deal.id,
+        }
+      }
+
+      if (flow.contract_status === 'signed' && paymentAmount > 0 && paidAmount < paymentAmount) {
+        return {
+          id: `deal-payment-${deal.id}`,
+          kind: 'deal_payment_blocked' as const,
+          title: deal.title || 'Сделка без названия',
+          detail: `Оплачено ${paidAmount} из ${paymentAmount} ${deal.currency || 'RUB'}`,
+          href: `/dashboard/deals?open=${deal.id}&pay=1#deal-payment-popover`,
+          created_at: flow.contract_signed_at || deal.created_at,
+          tone: paidAmount > 0 ? 'warning' as const : 'danger' as const,
+          entity_id: deal.id,
+        }
+      }
+
+      if (flow.contract_status === 'signed' && (!paymentAmount || paidAmount >= paymentAmount) && !flow.application_id) {
+        return {
+          id: `deal-application-${deal.id}`,
+          kind: 'deal_application_blocked' as const,
+          title: deal.title || 'Сделка без названия',
+          detail: 'Оплата и договор готовы, но участник ещё не создан',
+          href: `/dashboard/deals?open=${deal.id}&pay=1#deal-payment-popover`,
+          created_at: flow.contract_signed_at || deal.created_at,
+          tone: 'warning' as const,
+          entity_id: deal.id,
+        }
+      }
+
+      return null
+    })
+  const blockedDeals = blockedDealCandidates.filter((item) => item !== null)
+
+  const blockedDealsWithoutContract = blockedDeals.filter((item) => item.kind === 'deal_contract_blocked').length
+  const blockedDealsWithoutPayment = blockedDeals.filter((item) => item.kind === 'deal_payment_blocked').length
+  const blockedDealsWithoutApplication = blockedDeals.filter((item) => item.kind === 'deal_application_blocked').length
 
   const items: SystemIssueRow[] = [
     ...failedMessages.map((row) => ({
@@ -1398,6 +1473,7 @@ export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary>
       lead_id: row.lead_id,
       primary_action: 'mark_inbox_handled' as const,
     })),
+    ...blockedDeals,
   ]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, limit)
@@ -1408,6 +1484,10 @@ export async function getSystemOpsSummary(limit = 40): Promise<SystemOpsSummary>
     failed_calls: failedCalls.length,
     stale_contracts: staleContracts.length,
     stale_inbox: staleInbox.length,
+    stale_deals: blockedDeals.length,
+    blocked_deals_without_contract: blockedDealsWithoutContract,
+    blocked_deals_without_payment: blockedDealsWithoutPayment,
+    blocked_deals_without_application: blockedDealsWithoutApplication,
     items,
   }
 }
