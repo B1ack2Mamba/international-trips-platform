@@ -49,6 +49,15 @@ function slaLabel(value: string) {
   return `${days}д ${hours % 24}ч`
 }
 
+function slaBucket(value: string) {
+  const diffMs = Date.now() - new Date(value).getTime()
+  const hours = Math.max(1, Math.floor(diffMs / (60 * 60 * 1000)))
+  if (hours < 4) return 'fresh'
+  if (hours < 24) return 'today'
+  if (hours < 72) return 'overdue'
+  return 'critical'
+}
+
 const FILTERS = [
   { key: 'all', label: 'Все' },
   { key: 'danger', label: 'Критичные' },
@@ -60,6 +69,7 @@ const FILTERS = [
 const SCOPE_FILTERS = [
   { key: 'all', label: 'Все проблемы' },
   { key: 'mine', label: 'Мои проблемы' },
+  { key: 'unassigned', label: 'Без ответственного' },
 ] as const
 
 function matchesFilter(
@@ -115,9 +125,17 @@ export default async function SystemPage({
         .map((item) => [item.owner_id as string, { id: item.owner_id as string, name: item.owner_name as string }]),
     ).values(),
   ).sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+  const unassignedCount = summary.items.filter((item) => !item.owner_id).length
+  const slaSummary = {
+    fresh: summary.items.filter((item) => slaBucket(item.created_at) === 'fresh').length,
+    today: summary.items.filter((item) => slaBucket(item.created_at) === 'today').length,
+    overdue: summary.items.filter((item) => slaBucket(item.created_at) === 'overdue').length,
+    critical: summary.items.filter((item) => slaBucket(item.created_at) === 'critical').length,
+  }
   const filteredItems = summary.items.filter((item) => {
     if (!matchesFilter(filter, item)) return false
     if (scope === 'mine' && item.owner_id !== profile?.id) return false
+    if (scope === 'unassigned' && item.owner_id) return false
     if (ownerParam !== 'all' && item.owner_id !== ownerParam) return false
     return true
   })
@@ -152,6 +170,20 @@ export default async function SystemPage({
         </div>
       </article>
 
+      <article className="card stack">
+        <div className="section-mini-head">
+          <h2>SLA и назначение</h2>
+          <span className="badge">{summary.items.length}</span>
+        </div>
+        <div className="badge-row">
+          <span className={`badge ${slaSummary.fresh ? 'success' : ''}`}>До 4ч: {slaSummary.fresh}</span>
+          <span className={`badge ${slaSummary.today ? 'warning' : ''}`}>До 24ч: {slaSummary.today}</span>
+          <span className={`badge ${slaSummary.overdue ? 'warning' : ''}`}>1–3 дня: {slaSummary.overdue}</span>
+          <span className={`badge ${slaSummary.critical ? 'danger' : ''}`}>3+ дня: {slaSummary.critical}</span>
+          <span className={`badge ${unassignedCount ? 'danger' : ''}`}>Без ответственного: {unassignedCount}</span>
+        </div>
+      </article>
+
       {summary.items.length ? (
         <article className="card stack">
           <div className="section-mini-head">
@@ -160,7 +192,11 @@ export default async function SystemPage({
           </div>
           <div className="badge-row">
             {SCOPE_FILTERS.map((item) => {
-              const count = summary.items.filter((row) => (item.key === 'mine' ? row.owner_id === profile?.id : true)).length
+              const count = summary.items.filter((row) => {
+                if (item.key === 'mine') return row.owner_id === profile?.id
+                if (item.key === 'unassigned') return !row.owner_id
+                return true
+              }).length
               const href = `/dashboard/system?scope=${item.key}${filter !== 'all' ? `&filter=${filter}` : ''}${ownerParam !== 'all' ? `&owner=${ownerParam}` : ''}`
               return (
                 <Link key={item.key} href={href} className={`badge ${scope === item.key ? 'success' : ''}`}>
@@ -174,6 +210,7 @@ export default async function SystemPage({
               const count = summary.items.filter((row) => {
                 if (!matchesFilter(item.key, row)) return false
                 if (scope === 'mine' && row.owner_id !== profile?.id) return false
+                if (scope === 'unassigned' && row.owner_id) return false
                 if (ownerParam !== 'all' && row.owner_id !== ownerParam) return false
                 return true
               }).length
@@ -196,6 +233,7 @@ export default async function SystemPage({
                 if (row.owner_id !== owner.id) return false
                 if (!matchesFilter(filter, row)) return false
                 if (scope === 'mine' && row.owner_id !== profile?.id) return false
+                if (scope === 'unassigned' && row.owner_id) return false
                 return true
               }).length
               return (
