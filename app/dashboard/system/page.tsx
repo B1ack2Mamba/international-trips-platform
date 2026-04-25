@@ -2,9 +2,9 @@ import Link from 'next/link'
 import { EmptyState } from '@/components/empty-state'
 import { requireDashboardAccess } from '@/lib/auth'
 import { formatDateTime } from '@/lib/format'
-import { getSystemOpsSummary } from '@/lib/queries'
+import { getAssignableManagers, getSystemOpsSummary } from '@/lib/queries'
 import { canPerform } from '@/lib/roles'
-import { markSystemInboxHandledAction, requeueOutboxMessageAction } from './actions'
+import { assignSystemDealOwnerAction, escalateSystemIssueAction, markSystemInboxHandledAction, requeueOutboxMessageAction } from './actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -111,7 +111,11 @@ export default async function SystemPage({
 }) {
   const { profile } = await requireDashboardAccess('/dashboard/system')
   const params = (await searchParams) ?? {}
-  const summary = await getSystemOpsSummary()
+  const canUpdateDeals = canPerform(profile?.role, 'deal.update')
+  const [summary, managers] = await Promise.all([
+    getSystemOpsSummary(),
+    canUpdateDeals ? getAssignableManagers(100) : Promise.resolve([]),
+  ])
   const canManageOutbox = canPerform(profile?.role, 'communication.outbox_manage')
   const filterParam = typeof params.filter === 'string' ? params.filter : 'all'
   const scopeParam = typeof params.scope === 'string' ? params.scope : 'all'
@@ -139,6 +143,8 @@ export default async function SystemPage({
     if (ownerParam !== 'all' && item.owner_id !== ownerParam) return false
     return true
   })
+
+  const dealIssueKinds: SystemKind[] = ['deal_contract_blocked', 'deal_payment_blocked', 'deal_application_blocked']
 
   return (
     <div className="content-stack">
@@ -290,6 +296,31 @@ export default async function SystemPage({
                         {item.quick_action_href && item.quick_action_label ? (
                           <Link className="button-secondary" href={item.quick_action_href}>{item.quick_action_label}</Link>
                         ) : null}
+                        {canUpdateDeals && item.entity_id && dealIssueKinds.includes(item.kind) ? (
+                          <form action={assignSystemDealOwnerAction}>
+                            <input type="hidden" name="deal_id" value={item.entity_id} />
+                            <select name="owner_user_id" defaultValue={item.owner_id || ''}>
+                              <option value="">Без владельца</option>
+                              {managers.map((manager) => (
+                                <option key={manager.id} value={manager.id}>
+                                  {manager.full_name || manager.email || manager.id}
+                                </option>
+                              ))}
+                            </select>
+                            <button className="button-secondary">Назначить</button>
+                          </form>
+                        ) : null}
+                        <form action={escalateSystemIssueAction}>
+                          <input type="hidden" name="issue_id" value={item.id} />
+                          <input type="hidden" name="issue_title" value={item.title} />
+                          <input type="hidden" name="issue_detail" value={item.detail} />
+                          <input type="hidden" name="issue_href" value={item.href} />
+                          <input type="hidden" name="owner_user_id" value={item.owner_id || ''} />
+                          <input type="hidden" name="deal_id" value={dealIssueKinds.includes(item.kind) ? item.entity_id || '' : ''} />
+                          <input type="hidden" name="lead_id" value={item.lead_id || ''} />
+                          <input type="hidden" name="sla_bucket" value={slaBucket(item.created_at)} />
+                          <button className="button-secondary">Эскалировать</button>
+                        </form>
                         {canManageOutbox && item.primary_action === 'requeue_outbox' && item.entity_id ? (
                           <form action={requeueOutboxMessageAction}>
                             <input type="hidden" name="message_id" value={item.entity_id} />
