@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { getMessageDispatchWebhookUrl, isMessageDispatchDryRun } from '@/lib/env'
 import { getExolveConfigState } from '@/lib/exolve'
 import { formatDateTime } from '@/lib/format'
@@ -48,6 +49,55 @@ export default async function CommunicationsPage({
   const exolveConfig = getExolveConfigState()
   const missedCalls = callLogs.filter((call) => call.status === 'missed').length
   const failedCalls = callLogs.filter((call) => call.status === 'failed').length
+  const omniFeed = [
+    ...allInbox.map((message) => {
+      const lead = Array.isArray(message.lead) ? (message.lead[0] ?? null) : message.lead
+      return {
+        id: `inbox-${message.id}`,
+        kind: 'message' as const,
+        direction: 'inbound' as const,
+        channel: message.channel,
+        title: message.subject || 'Входящее сообщение',
+        body: message.body,
+        contact: message.sender_name || lead?.contact_name_raw || 'Без имени',
+        meta: message.sender_email || message.sender_phone || lead?.email_raw || lead?.phone_raw || '—',
+        status: message.status,
+        occurredAt: message.received_at || message.created_at,
+        href: message.lead_id ? `/dashboard/my-leads?open=${message.lead_id}#lead-communications` : '/dashboard/communications',
+      }
+    }),
+    ...allOutbox.map((message) => ({
+      id: `outbox-${message.id}`,
+      kind: 'message' as const,
+      direction: 'outbound' as const,
+      channel: message.channel,
+      title: message.subject || 'Исходящее сообщение',
+      body: message.body,
+      contact: message.recipient_name || 'Без имени',
+      meta: message.recipient_email || message.recipient_phone || '—',
+      status: message.status,
+      occurredAt: message.sent_at || message.send_after || message.created_at,
+      href: message.lead_id ? `/dashboard/my-leads?open=${message.lead_id}#lead-communications` : '/dashboard/communications',
+    })),
+    ...callLogs.map((call) => {
+      const lead = Array.isArray(call.lead) ? (call.lead[0] ?? null) : call.lead
+      return {
+        id: `call-${call.id}`,
+        kind: 'call' as const,
+        direction: call.direction === 'inbound' ? 'inbound' as const : 'outbound' as const,
+        channel: 'phone',
+        title: call.request_description || (call.direction === 'inbound' ? 'Входящий звонок' : 'Звонок'),
+        body: `${call.source_number ? `+${call.source_number}` : '—'} → ${call.destination_number ? `+${call.destination_number}` : '—'}`,
+        contact: lead?.contact_name_raw || call.display_number || 'Без клиента',
+        meta: lead?.phone_raw || (call.display_number ? `+${call.display_number}` : '—'),
+        status: call.status,
+        occurredAt: call.started_at || call.created_at,
+        href: call.lead_id ? `/dashboard/my-leads?open=${call.lead_id}#lead-communications` : '/dashboard/communications',
+      }
+    }),
+  ]
+    .sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime())
+    .slice(0, 80)
 
   return (
     <div className="content-stack">
@@ -65,6 +115,58 @@ export default async function CommunicationsPage({
         <article className="card kpi"><div className="kpi-label">Ошибки</div><div className="kpi-value">{failedCount}</div><div className="micro">требуют внимания</div></article>
         <article className="card kpi"><div className="kpi-label">Sent</div><div className="kpi-value">{sentCount}</div><div className="micro">в последних 60 записях</div></article>
       </section>
+
+      <article className="card stack">
+        <div className="section-mini-head">
+          <div>
+            <h2>Омниканал</h2>
+            <div className="micro">Единая лента входящих, исходящих и звонков без переключения между отдельными таблицами.</div>
+          </div>
+          <div className="compact-badges">
+            <span className="badge">Событий: {omniFeed.length}</span>
+            <span className={`badge ${inboxOpenCount || missedCalls ? 'warning' : 'success'}`}>Требуют реакции: {inboxOpenCount + missedCalls}</span>
+          </div>
+        </div>
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Направление</th>
+                <th>Канал</th>
+                <th>Клиент</th>
+                <th>Содержание</th>
+                <th>Статус</th>
+                <th>Когда</th>
+                <th>Открыть</th>
+              </tr>
+            </thead>
+            <tbody>
+              {omniFeed.map((item) => (
+                <tr key={item.id} className={item.status === 'failed' || item.status === 'missed' || item.status === 'queued' || item.status === 'processing' || item.status === 'new' ? 'attention-row' : ''}>
+                  <td>{item.direction === 'inbound' ? 'Входящий' : 'Исходящий'}</td>
+                  <td>{item.channel === 'phone' ? 'Телефон' : label('channel', item.channel)}</td>
+                  <td>
+                    <div>{item.contact}</div>
+                    <div className="micro">{item.meta}</div>
+                  </td>
+                  <td>
+                    <div>{item.title}</div>
+                    <div className="micro outbox-body-preview">{item.body}</div>
+                  </td>
+                  <td>
+                    <span className={`badge ${item.status === 'failed' || item.status === 'missed' ? 'danger' : item.status === 'handled' || item.status === 'sent' || item.status === 'completed' || item.status === 'answered' ? 'success' : item.status === 'queued' || item.status === 'processing' || item.status === 'new' ? 'warning' : ''}`}>
+                      {item.status}
+                    </span>
+                  </td>
+                  <td>{formatDateTime(item.occurredAt)}</td>
+                  <td><Link href={item.href}>Открыть</Link></td>
+                </tr>
+              ))}
+              {!omniFeed.length ? <tr><td colSpan={7}>Коммуникаций пока нет.</td></tr> : null}
+            </tbody>
+          </table>
+        </div>
+      </article>
 
       <article className="card stack">
         <div className="section-mini-head">
