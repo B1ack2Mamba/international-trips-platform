@@ -329,9 +329,9 @@ const DASHBOARD_MODULES: readonly DashboardModuleDefinition[] = [
   },
   {
     key: 'applications',
-    routePath: '/dashboard/applications',
-    href: '/dashboard/applications',
-    label: 'Заявки',
+    routePath: '/dashboard/participants',
+    href: '/dashboard/participants',
+    label: 'Участники',
     description: 'Участники, документы, визы, портал семьи и запуск договора.',
     groupTitle: 'Бэк-офис и семья',
     roles: [...backofficeRoles, 'sales_head', 'sales_manager'] as const,

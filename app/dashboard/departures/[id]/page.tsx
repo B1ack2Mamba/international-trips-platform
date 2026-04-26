@@ -52,7 +52,7 @@ export default async function DepartureDetailPage({ params }: { params: Promise<
         </div>
         <div className="form-actions">
           <Link className="button-secondary" href="/dashboard/departures">К списку выездов</Link>
-          <Link className="button-secondary" href={`/dashboard/applications?departure_id=${departure.id}`}>Участники</Link>
+          <Link className="button-secondary" href={`/dashboard/participants?departure_id=${departure.id}`}>Участники</Link>
           <Link className="button-secondary" href={`/dashboard/ops/${departure.id}`}>Открыть Ops</Link>
         </div>
       </section>
@@ -61,7 +61,7 @@ export default async function DepartureDetailPage({ params }: { params: Promise<
         items={[
           { label: 'Программы', href: '/dashboard/programs' },
           { label: 'Выезды', href: '/dashboard/departures' },
-          { label: 'Заявки', href: '/dashboard/applications' },
+          { label: 'Участники', href: '/dashboard/participants' },
           { label: 'Операционка', href: '/dashboard/ops' },
           { label: 'Контроллинг', href: '/dashboard/controlling' },
         ]}
@@ -154,7 +154,7 @@ export default async function DepartureDetailPage({ params }: { params: Promise<
               <h2 style={{ margin: 0 }}>Участники выезда</h2>
               <div className="micro">Именно эти заявки потом попадают в договоры, платежи и операционку.</div>
             </div>
-            <Link className="button-secondary" href={`/dashboard/applications?departure_id=${departure.id}`}>Весь реестр</Link>
+            <Link className="button-secondary" href={`/dashboard/participants?departure_id=${departure.id}`}>Весь реестр</Link>
           </div>
           <div className="table-wrap">
             <table className="table">
@@ -170,7 +170,7 @@ export default async function DepartureDetailPage({ params }: { params: Promise<
                 {applications.map((application) => (
                   <tr key={application.id}>
                     <td>
-                      <div><Link href={`/dashboard/applications/${application.id}`}>{application.participant_name}</Link></div>
+                      <div><Link href={`/dashboard/participants/${application.id}`}>{application.participant_name}</Link></div>
                       <div className="micro">{application.guardian_name || application.guardian_email || '—'}</div>
                     </td>
                     <td>{application.deal ? <Link href={`/dashboard/deals/${application.deal.id}`}>{application.deal.title}</Link> : '—'}</td>

@@ -58,7 +58,7 @@ export default async function DealDetailPage({ params }: { params: Promise<{ id:
         items={[
           { label: 'Лиды', href: '/dashboard/leads' },
           { label: 'Сделки', href: '/dashboard/deals' },
-          { label: 'Заявки', href: '/dashboard/applications' },
+          { label: 'Участники', href: '/dashboard/participants' },
           { label: 'Договоры', href: '/dashboard/contracts' },
           { label: 'Финансы', href: '/dashboard/finance' },
           { label: 'Операционка', href: '/dashboard/ops' },
@@ -74,7 +74,7 @@ export default async function DealDetailPage({ params }: { params: Promise<{ id:
             <span className="process-trail-arrow">→</span>
             <span className="process-trail-item active">Сделка</span>
             <span className="process-trail-arrow">→</span>
-            <span className="process-trail-item">Заявки</span>
+            <span className="process-trail-item">Участники</span>
             <span className="process-trail-arrow">→</span>
             <span className="process-trail-item">Договоры</span>
             <span className="process-trail-arrow">→</span>
@@ -89,7 +89,7 @@ export default async function DealDetailPage({ params }: { params: Promise<{ id:
           </ul>
           <div className="flow-card-links">
             {deal.lead_id ? <Link className="button-secondary" href={`/dashboard/leads/${deal.lead_id}`}>Источник: лид</Link> : null}
-            <Link className="button-secondary" href={`/dashboard/applications?deal_id=${deal.id}`}>Заявки сделки</Link>
+            <Link className="button-secondary" href={`/dashboard/participants?deal_id=${deal.id}`}>Участники сделки</Link>
             <Link className="button-secondary" href={`/dashboard/contracts?deal_id=${deal.id}`}>Договоры сделки</Link>
             <Link className="button-secondary" href={`/dashboard/finance?deal_id=${deal.id}&create=payment`}>+ Платёж по сделке</Link>
           </div>
@@ -226,7 +226,7 @@ export default async function DealDetailPage({ params }: { params: Promise<{ id:
               <h2 style={{ margin: 0 }}>Связанные заявки</h2>
               <div className="micro">Именно отсюда рождаются договоры, финансы и попадание в выезд.</div>
             </div>
-            <Link className="button-secondary" href={`/dashboard/applications?deal_id=${deal.id}`}>Весь реестр по сделке</Link>
+            <Link className="button-secondary" href={`/dashboard/participants?deal_id=${deal.id}`}>Весь реестр по сделке</Link>
           </div>
           {applications.length ? (
             <div className="table-wrap">
@@ -243,7 +243,7 @@ export default async function DealDetailPage({ params }: { params: Promise<{ id:
                   {applications.map((application) => (
                     <tr key={application.id}>
                       <td>
-                        <div><Link href={`/dashboard/applications/${application.id}`}>{application.participant_name}</Link></div>
+                        <div><Link href={`/dashboard/participants/${application.id}`}>{application.participant_name}</Link></div>
                         <div className="micro">{application.guardian_name || '—'}</div>
                       </td>
                       <td>{application.departure?.id ? <Link href={`/dashboard/departures/${application.departure.id}`}>{application.departure.departure_name}</Link> : 'Не назначен'}</td>

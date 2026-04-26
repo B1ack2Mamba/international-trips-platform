@@ -240,7 +240,7 @@ export function createDefaultCustomModuleBlock(type: CustomModuleBlockType, colu
         span: 1,
         tone: 'warning',
         buttons: [
-          { id: uid('action'), label: 'Открыть кейсы', tone: 'primary', hint: 'Быстрый переход в очередь', href: '/dashboard/applications' },
+          { id: uid('action'), label: 'Открыть участников', tone: 'primary', hint: 'Быстрый переход в реестр поездок', href: '/dashboard/participants' },
           { id: uid('action'), label: 'Снять риск', tone: 'secondary', hint: 'Проверка узких мест', href: '/dashboard/controlling' },
           { id: uid('action'), label: 'Эскалировать', tone: 'danger', hint: 'Передать наверх', href: '' },
         ],

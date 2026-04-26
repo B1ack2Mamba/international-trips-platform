@@ -54,7 +54,7 @@ export default async function ContractsPage({
           { label: 'Лиды', href: '/dashboard/leads' },
           { label: 'Сделки', href: '/dashboard/deals' },
           { label: 'Договоры', href: '/dashboard/contracts' },
-          { label: 'Участники', href: '/dashboard/applications' },
+          { label: 'Участники', href: '/dashboard/participants' },
         ]}
         current="Договоры"
       />

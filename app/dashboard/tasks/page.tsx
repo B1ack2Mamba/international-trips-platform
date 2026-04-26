@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
 function taskHref(task: TaskRow) {
   if (task.deal_id) return `/dashboard/deals?open=${task.deal_id}#deal-editor`
   if (task.lead_id) return `/dashboard/my-leads?open=${task.lead_id}`
-  if (task.application_id) return `/dashboard/applications/${task.application_id}`
+  if (task.application_id) return `/dashboard/participants/${task.application_id}`
   return '/dashboard/tasks'
 }
 

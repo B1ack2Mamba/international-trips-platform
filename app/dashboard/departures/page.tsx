@@ -31,7 +31,7 @@ export default async function DeparturesPage() {
           { label: 'Программы', href: '/dashboard/programs' },
           { label: 'Выезды', href: '/dashboard/departures' },
           { label: 'Сделки', href: '/dashboard/deals' },
-          { label: 'Заявки', href: '/dashboard/applications' },
+          { label: 'Участники', href: '/dashboard/participants' },
           { label: 'Операционка', href: '/dashboard/ops' },
           { label: 'Контроллинг', href: '/dashboard/controlling' },
         ]}
@@ -166,7 +166,7 @@ export default async function DeparturesPage() {
                     <td>
                       <div className="registry-actions registry-actions--departures-row">
                         <Link className="button-secondary" href={`/dashboard/departures/${departure.id}`}>Карточка</Link>
-                        <Link className="button-secondary" href={`/dashboard/applications?departure_id=${departure.id}`}>Участники</Link>
+                        <Link className="button-secondary" href={`/dashboard/participants?departure_id=${departure.id}`}>Участники</Link>
                         <Link className="button-secondary" href={`/dashboard/ops/${departure.id}`}>Ops</Link>
                       </div>
                     </td>

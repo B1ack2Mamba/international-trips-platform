@@ -256,7 +256,7 @@ export const STARTER_WORKSPACE_TEMPLATES: readonly {
     slug: 'backoffice',
     color: '#f59e0b',
     sort_order: 30,
-    description: 'Заявки, договоры, платежи, коммуникации и сопровождение семьи.',
+    description: 'Участники, договоры, платежи, коммуникации и сопровождение семьи.',
     modules: ['dashboard', 'applications', 'contracts', 'create_payment', 'communications', 'accounts', 'departures'],
   },
   {

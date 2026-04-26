@@ -67,7 +67,7 @@ export default async function DepartureOpsDetailPage({ params }: { params: Promi
         items={[
           { label: 'Выезды', href: '/dashboard/departures' },
           { label: 'Карточка выезда', href: `/dashboard/departures/${departure.id}` },
-          { label: 'Заявки', href: `/dashboard/applications?departure_id=${departure.id}` },
+          { label: 'Участники', href: `/dashboard/participants?departure_id=${departure.id}` },
           { label: 'Операционка', href: '/dashboard/ops' },
           { label: 'Отчёты', href: '/dashboard/reports' },
         ]}

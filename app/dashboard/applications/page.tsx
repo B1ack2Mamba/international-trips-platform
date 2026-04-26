@@ -30,13 +30,13 @@ export default async function ApplicationsPage({
   const departureContext = departureId ? applications[0]?.departure ?? null : null
 
   const contextTitle = deal
-    ? `Заявки по сделке «${deal.title}»`
+    ? `Участники по сделке «${deal.title}»`
     : departureId
-      ? 'Заявки по выбранному выезду'
-      : 'Реестр заявок'
+      ? 'Участники выбранного выезда'
+      : 'Реестр участников'
 
   const contextText = deal
-    ? 'Здесь показываются все заявки, которые родились из этой сделки.'
+    ? 'Здесь показываются все участники, которые родились из этой сделки.'
     : departureId
       ? 'Здесь видны все участники конкретного выезда.'
       : 'Плотный реестр участников: без лишней вертикали и длинных пояснений.'
@@ -45,13 +45,13 @@ export default async function ApplicationsPage({
     <div className="content-stack compact-page fullscreen-stretch applications-fullscreen-page">
       <section className="section-head applications-section-head applications-section-head--tight">
         <div>
-          <h1 className="page-title">Заявки</h1>
+          <h1 className="page-title">Участники</h1>
           <p className="muted">{contextText}</p>
         </div>
         <div className="compact-toolbar applications-toolbar">
           {deal ? <Link className="button-secondary" href={`/dashboard/deals?open=${deal.id}#deal-editor`}>К сделке</Link> : null}
           {deal ? <Link className="button-secondary" href={`/dashboard/deals?open=${deal.id}#deal-editor`}>Открыть редактор сделки</Link> : null}
-          {(dealId || departureId) ? <Link className="button-secondary" href="/dashboard/applications">Показать все заявки</Link> : null}
+          {(dealId || departureId) ? <Link className="button-secondary" href="/dashboard/participants">Показать всех участников</Link> : null}
         </div>
       </section>
 
@@ -59,17 +59,17 @@ export default async function ApplicationsPage({
         items={[
           { label: 'Лиды', href: '/dashboard/leads' },
           { label: 'Сделки', href: '/dashboard/deals' },
-          { label: 'Заявки', href: '/dashboard/applications' },
+          { label: 'Участники', href: '/dashboard/participants' },
           { label: 'Договоры', href: '/dashboard/contracts' },
           { label: 'Финансы', href: '/dashboard/finance' },
           { label: 'Операционка', href: '/dashboard/ops' },
         ]}
-        current="Заявки"
+        current="Участники"
       />
 
       {error ? (
         <div className="notice notice-danger">
-          <div style={{ fontWeight: 800, marginBottom: 4 }}>Не удалось передать сделку в заявки</div>
+          <div style={{ fontWeight: 800, marginBottom: 4 }}>Не удалось передать сделку в участников</div>
           <div className="micro">{error}</div>
         </div>
       ) : null}
@@ -77,13 +77,13 @@ export default async function ApplicationsPage({
       {created && from === 'deal' ? (
         <div className="notice">
           <div style={{ fontWeight: 800, marginBottom: 4 }}>Переход из сделки выполнен</div>
-          <div className="micro">Режим: {mode || 'user-rpc'}. Ниже показываются все заявки контекста, а не только последняя запись.</div>
+          <div className="micro">Режим: {mode || 'user-rpc'}. Ниже показываются все участники контекста, а не только последняя запись.</div>
         </div>
       ) : null}
 
       {readDebug.source === 'failed' ? (
         <div className="notice notice-danger">
-          <div style={{ fontWeight: 800, marginBottom: 4 }}>Реестр заявок не удалось прочитать</div>
+          <div style={{ fontWeight: 800, marginBottom: 4 }}>Реестр участников не удалось прочитать</div>
           <div className="micro">{readDebug.error || 'Supabase не вернул детали ошибки'}.</div>
           {readDebug.attempts.length ? (
             <div className="micro" style={{ marginTop: 8 }}>Попытки: {readDebug.attempts.join(' • ')}</div>
@@ -92,7 +92,7 @@ export default async function ApplicationsPage({
       ) : null}
 
       <section className="kpi-grid kpi-grid--compact applications-kpi-grid">
-        <div className="card kpi"><div className="kpi-label">Всего в реестре</div><div className="kpi-value">{applications.length}</div><div className="micro">Видимые заявки</div></div>
+        <div className="card kpi"><div className="kpi-label">Всего в реестре</div><div className="kpi-value">{applications.length}</div><div className="micro">Видимые участники</div></div>
         <div className="card kpi"><div className="kpi-label">Подписан договор</div><div className="kpi-value">{applications.filter((item) => item.contract_status === 'signed').length}</div><div className="micro">По текущему списку</div></div>
         <div className="card kpi"><div className="kpi-label">Оплачено полностью</div><div className="kpi-value">{applications.filter((item) => item.payment_status === 'paid').length}</div><div className="micro">Статус оплаты</div></div>
       </section>
@@ -112,8 +112,8 @@ export default async function ApplicationsPage({
         {!applications.length ? (
           <div className="empty-state" style={{ margin: '8px 0' }}>
             {created && from === 'deal'
-              ? 'После передачи из сделки здесь должен появиться полный список заявок этой сделки. Если пусто, смотри notice выше.'
-              : 'Пока заявок не видно.'}
+              ? 'После передачи из сделки здесь должен появиться полный список участников этой сделки. Если пусто, смотри notice выше.'
+              : 'Пока участников не видно.'}
           </div>
         ) : null}
         {applications.length ? <ApplicationRegistryTable applications={applications} /> : null}

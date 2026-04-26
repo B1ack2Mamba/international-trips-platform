@@ -52,9 +52,9 @@ export default function HomePage() {
             <h3 style={{ margin: 0 }}>2. Сделка</h3>
             <p className="muted" style={{ margin: 0 }}>Менеджер квалифицирует клиента и ведёт коммерческий статус.</p>
           </Link>
-          <Link href="/dashboard/applications" className="card stack">
-            <h3 style={{ margin: 0 }}>3. Заявка</h3>
-            <p className="muted" style={{ margin: 0 }}>После продажи запускаются документы, оплаты и операционный handoff.</p>
+          <Link href="/dashboard/participants" className="card stack">
+            <h3 style={{ margin: 0 }}>3. Участник поездки</h3>
+            <p className="muted" style={{ margin: 0 }}>После продажи запускаются документы, оплаты и сопровождение участника.</p>
           </Link>
         </div>
       </section>

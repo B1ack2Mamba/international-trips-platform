@@ -27,7 +27,7 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
           <p className="muted">Это уже не файл. Это сущность процесса со статусом, порталом и следом действий.</p>
         </div>
         <div className="form-actions">
-          {contract.application_id ? <Link className="button-secondary" href={`/dashboard/applications/${contract.application_id}`}>К заявке</Link> : null}
+          {contract.application_id ? <Link className="button-secondary" href={`/dashboard/participants/${contract.application_id}`}>К участнику</Link> : null}
           <Link className="button-secondary" href="/dashboard/contracts">Назад к договорам</Link>
         </div>
       </section>

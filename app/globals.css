@@ -413,6 +413,11 @@ form {
   grid-template-columns: 280px minmax(0, 1fr);
 }
 
+.dashboard-shell.is-collapsed.is-hover-sidebar-disabled:has(.dashboard-sidebar-wrap:hover),
+.dashboard-shell.is-collapsed.is-hover-sidebar-disabled:has(.dashboard-sidebar-wrap:focus-within) {
+  grid-template-columns: 72px minmax(0, 1fr);
+}
+
 .dashboard-sidebar-wrap {
   position: sticky;
   top: 92px;
@@ -437,6 +442,13 @@ form {
   opacity: 1;
   pointer-events: auto;
   visibility: visible;
+}
+
+.dashboard-shell.is-collapsed.is-hover-sidebar-disabled .dashboard-sidebar-wrap:hover .sidebar,
+.dashboard-shell.is-collapsed.is-hover-sidebar-disabled .dashboard-sidebar-wrap:focus-within .sidebar {
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
 }
 
 .dashboard-sidebar-toggle {

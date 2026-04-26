@@ -101,11 +101,11 @@ export default async function DashboardSearchPage({
             ) : <div className="workbar-notification-empty">Совпадений нет.</div>}
           </SearchSection>
 
-          <SearchSection title="Заявки" count={results.applications.length}>
+          <SearchSection title="Участники" count={results.applications.length}>
             {results.applications.length ? (
               <div className="workbar-notification-list">
                 {results.applications.map((application) => (
-                  <Link key={application.id} className="workbar-notification-item" href={`/dashboard/applications/${application.id}`}>
+                  <Link key={application.id} className="workbar-notification-item" href={`/dashboard/participants/${application.id}`}>
                     <div className="workbar-notification-link">
                       <span>{application.participant_name}</span>
                       <small>{application.guardian_name || application.guardian_phone || application.guardian_email || 'Без плательщика'} · {label('applicationStatus', application.status)}</small>

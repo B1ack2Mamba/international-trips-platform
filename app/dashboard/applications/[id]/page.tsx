@@ -61,12 +61,12 @@ export default async function ApplicationDetailPage({ params }: { params: Promis
     <div className="content-stack">
       <section className="section-head">
         <div>
-          <div className="micro">Заявка #{application.id.slice(0, 8)}</div>
+          <div className="micro">Участник #{application.id.slice(0, 8)}</div>
           <h1 className="page-title">{application.participant_name}</h1>
           <p className="muted">Здесь продажа превращается в документы, договоры, деньги и родительский контур.</p>
         </div>
-        <Link className="button-secondary" href="/dashboard/applications">
-          Назад к заявкам
+        <Link className="button-secondary" href="/dashboard/participants">
+          Назад к участникам
         </Link>
       </section>
 
@@ -74,21 +74,21 @@ export default async function ApplicationDetailPage({ params }: { params: Promis
         items={[
           { label: 'Лиды', href: '/dashboard/leads' },
           { label: 'Сделки', href: '/dashboard/deals' },
-          { label: 'Заявки', href: '/dashboard/applications' },
+          { label: 'Участники', href: '/dashboard/participants' },
           { label: 'Договоры', href: '/dashboard/contracts' },
           { label: 'Финансы', href: '/dashboard/finance' },
           { label: 'Операционка', href: '/dashboard/ops' },
         ]}
-        current="Заявки"
+        current="Участники"
       />
 
       <section className="grid-2">
         <article className="card flow-card">
-          <h2 className="flow-card-title">Как читается эта заявка в процессе</h2>
+          <h2 className="flow-card-title">Как читается этот участник в процессе</h2>
           <div className="process-trail">
             <span className="process-trail-item">Сделка</span>
             <span className="process-trail-arrow">→</span>
-            <span className="process-trail-item active">Заявка</span>
+            <span className="process-trail-item active">Участник</span>
             <span className="process-trail-arrow">→</span>
             <span className="process-trail-item">Договор</span>
             <span className="process-trail-arrow">→</span>
@@ -97,7 +97,7 @@ export default async function ApplicationDetailPage({ params }: { params: Promis
             <span className="process-trail-item">Операционка</span>
           </div>
           <ul className="list">
-            <li>Эта карточка создаётся из сделки и закрепляет конкретного участника.</li>
+            <li>Эта карточка создаётся из сделки и закрепляет конкретного участника поездки.</li>
             <li>Отсюда запускаются договоры и платежи. Реестры ниже — это уже следствие.</li>
             <li>Чтобы участник попал в Ops, у заявки должен быть назначен выезд.</li>
           </ul>

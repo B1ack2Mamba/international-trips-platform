@@ -94,7 +94,7 @@ export function DealRegistryTable({
                 <div className="registry-actions registry-actions--inline" onClick={(e) => e.stopPropagation()}>
                   <Link className="button-secondary" href={`/dashboard/contracts?deal_id=${deal.id}`}>{flow?.contract_status ? label('contractStatus', flow.contract_status) : 'Договор'}</Link>
                   <Link className="button-secondary" href={`/dashboard/deals?open=${deal.id}&pay=1#deal-payment-popover`}>Оплата</Link>
-                  {flow?.application_id ? <Link className="button-secondary" href={`/dashboard/applications?deal_id=${deal.id}`}>Участник</Link> : null}
+                  {flow?.application_id ? <Link className="button-secondary" href={`/dashboard/participants?deal_id=${deal.id}`}>Участник</Link> : null}
                 </div>
               </td>
             </tr>

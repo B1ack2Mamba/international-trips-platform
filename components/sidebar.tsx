@@ -13,12 +13,27 @@ export async function Sidebar({
     getDashboardNavGroupsForProfile(profile),
     new Promise<WorkspaceNavGroup[]>((resolve) => setTimeout(() => resolve(baseGroups), 1200)),
   ])) as WorkspaceNavGroup[]
+  const visibleGroups = groups
+    .map((group) => ({
+      ...group,
+      items: group.items.map((item) =>
+        item.href === '/dashboard/applications'
+          ? {
+              ...item,
+              href: '/dashboard/participants',
+              label: 'Участники',
+              description: 'Участники поездок, документы, визы, портал семьи и договорный контур.',
+            }
+          : item,
+      ),
+    }))
+    .filter((group) => group.items.length)
   return (
     <aside className="sidebar">
       <section className="sidebar-card stack">
         <div className="badge-row">
           <span className="badge success">{label('role', profile.role)}</span>
-          <span className="badge">Разделов: {groups.reduce((sum, group) => sum + group.items.length, 0)}</span>
+          <span className="badge">Разделов: {visibleGroups.reduce((sum, group) => sum + group.items.length, 0)}</span>
         </div>
         <div>
           <div style={{ fontWeight: 800 }}>{profile.full_name ?? 'Пользователь'}</div>
@@ -26,7 +41,7 @@ export async function Sidebar({
         </div>
       </section>
       <section className="sidebar-card stack">
-        {groups.map((group) => (
+        {visibleGroups.map((group) => (
           <div key={group.title} className="stack" style={{ gap: 10 }}>
             <div className="micro sidebar-group-title">{group.title}</div>
             <nav>

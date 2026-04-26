@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 
 const STORAGE_KEY = 'dashboard_shell_sidebar_collapsed_v1'
 
@@ -14,6 +15,8 @@ export function DashboardShellClient({
   workbar?: React.ReactNode
 }) {
   const [collapsed, setCollapsed] = useState(false)
+  const pathname = usePathname()
+  const disableHoverSidebar = pathname.startsWith('/dashboard/spaces')
 
   useEffect(() => {
     try {
@@ -29,7 +32,9 @@ export function DashboardShellClient({
   }, [collapsed])
 
   return (
-    <div className={`dashboard-shell dashboard-shell--studio ${collapsed ? 'is-collapsed' : ''}`}>
+    <div
+      className={`dashboard-shell dashboard-shell--studio ${collapsed ? 'is-collapsed' : ''}${disableHoverSidebar ? ' is-hover-sidebar-disabled' : ''}`}
+    >
       <div className="dashboard-sidebar-wrap">
         <button
           type="button"

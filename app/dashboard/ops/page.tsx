@@ -32,7 +32,7 @@ export default async function OpsPage() {
         items={[
           { label: 'Программы', href: '/dashboard/programs' },
           { label: 'Выезды', href: '/dashboard/departures' },
-          { label: 'Заявки', href: '/dashboard/applications' },
+          { label: 'Участники', href: '/dashboard/participants' },
           { label: 'Операционка', href: '/dashboard/ops' },
           { label: 'Отчёты', href: '/dashboard/reports' },
         ]}
@@ -52,12 +52,12 @@ export default async function OpsPage() {
             <span className="process-trail-item active">Операционка</span>
           </div>
           <ul className="list">
-            <li>Операционка не создаёт участников сама. Они приходят из заявок, у которых указан конкретный выезд.</li>
+            <li>Операционка не создаёт участников сама. Они приходят из сделок и договорного контура, когда у клиента указан конкретный выезд.</li>
             <li>Редактирование самого выезда, цены, статуса и экономики находится в карточке выезда.</li>
             <li>Редактирование чек-листа и trip updates находится в карточке ops выезда.</li>
           </ul>
           <div className="flow-card-links">
-            <Link className="button-secondary" href="/dashboard/applications">Открыть заявки</Link>
+            <Link className="button-secondary" href="/dashboard/participants">Открыть участников</Link>
             <Link className="button-secondary" href="/dashboard/departures">Открыть выезды</Link>
           </div>
         </article>
@@ -108,7 +108,7 @@ export default async function OpsPage() {
                         <Link className="button-secondary" href={`/dashboard/departures/${departure.departure_id}`}>
                           Карточка
                         </Link>
-                        <Link className="button-secondary" href={`/dashboard/applications?departure_id=${departure.departure_id}`}>
+                        <Link className="button-secondary" href={`/dashboard/participants?departure_id=${departure.departure_id}`}>
                           Участники
                         </Link>
                         <Link className="button-secondary" href={`/dashboard/ops/${departure.departure_id}`}>

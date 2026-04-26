@@ -41,7 +41,7 @@ export function ApplicationRegistryTable({ applications }: { applications: Appli
         </thead>
         <tbody>
           {applications.map((application) => (
-            <tr key={application.id} className="interactive-row" onClick={() => router.push(`/dashboard/applications/${application.id}`)}>
+            <tr key={application.id} className="interactive-row" onClick={() => router.push(`/dashboard/participants/${application.id}`)}>
               <td>
                 <div><strong>{application.participant_name}</strong></div>
                 <div className="micro">Карточка участника</div>
@@ -67,7 +67,7 @@ export function ApplicationRegistryTable({ applications }: { applications: Appli
               <td>{formatDateTime(application.created_at)}</td>
               <td>
                 <div className="registry-actions registry-actions--applications-row" onClick={(e) => e.stopPropagation()}>
-                  <Link className="button-secondary" href={`/dashboard/applications/${application.id}`}>Карточка</Link>
+                  <Link className="button-secondary" href={`/dashboard/participants/${application.id}`}>Карточка</Link>
                   <Link className="button-secondary" href={`/dashboard/contracts?application_id=${application.id}`}>Договоры</Link>
                   <Link className="button-secondary" href={`/dashboard/finance?application_id=${application.id}`}>Платежи</Link>
                 </div>

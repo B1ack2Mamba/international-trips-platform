@@ -46,7 +46,7 @@ export default async function ReportsPage() {
                   <th>Партнёр</th>
                   <th>Лиды</th>
                   <th>Сделки</th>
-                  <th>Заявки</th>
+                  <th>Участники</th>
                   <th>Бронь</th>
                   <th>Комиссия</th>
                 </tr>
